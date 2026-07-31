@@ -23,7 +23,7 @@ Project: Master's Thesis - Zemax Optical Analysis Toolkit
 from pathlib import Path
 
 # ---------------------------------------------------------------------
-# Project Directories
+# Project Paths
 # ---------------------------------------------------------------------
 
 PROJECT_ROOT = Path(".")
@@ -33,21 +33,35 @@ INPUT_DIRECTORY = PROJECT_ROOT / "input"
 OUTPUT_DIRECTORY = PROJECT_ROOT / "output"
 
 # ---------------------------------------------------------------------
-# Input Analysis Directories
+# Analysis Input Paths
 # ---------------------------------------------------------------------
 
-THERMAL_DIRECTORY = "thermal"
+THERMAL_INPUT_DIRECTORY = INPUT_DIRECTORY / "thermal"
 
-MONTE_CARLO_DIRECTORY = "montecarlo"
+MONTE_CARLO_INPUT_DIRECTORY = INPUT_DIRECTORY / "montecarlo"
 
-TOLERANCE_DIRECTORY = "tolerance"
+TOLERANCE_INPUT_DIRECTORY = INPUT_DIRECTORY / "tolerance"
 
 #
 # Future analyses
 #
-# STRAY_LIGHT_DIRECTORY = "straylight"
-# DISTORTION_DIRECTORY = "distortion"
-# FIELD_CURVATURE_DIRECTORY = "field_curvature"
+# STRAY_LIGHT_INPUT_DIRECTORY = INPUT_DIRECTORY / "straylight"
+# DISTORTION_INPUT_DIRECTORY = INPUT_DIRECTORY / "distortion"
+# FIELD_CURVATURE_INPUT_DIRECTORY = INPUT_DIRECTORY / "field_curvature"
+
+# ---------------------------------------------------------------------
+# Analysis Output Paths
+# ---------------------------------------------------------------------
+
+THERMAL_OUTPUT_DIRECTORY = OUTPUT_DIRECTORY / "thermal"
+
+MONTE_CARLO_OUTPUT_DIRECTORY = OUTPUT_DIRECTORY / "montecarlo"
+
+TOLERANCE_OUTPUT_DIRECTORY = OUTPUT_DIRECTORY / "tolerance"
+
+# STRAY_LIGHT_OUTPUT_DIRECTORY = OUTPUT_DIRECTORY / "straylight"
+# DISTORTION_OUTPUT_DIRECTORY = OUTPUT_DIRECTORY / "distortion"
+# FIELD_CURVATURE_OUTPUT_DIRECTORY = OUTPUT_DIRECTORY / "field_curvature"
 
 # ---------------------------------------------------------------------
 # Zemax Report Filenames

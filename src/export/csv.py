@@ -6,7 +6,7 @@ CSV exporter for optical analysis results.
 Purpose
 -------
 Exports a collection of OpticalCase objects belonging to a single
-analysis type and wavelength to a CSV file.
+analysis grouping to a CSV file.
 
 The output location is determined automatically using the centralized
 path utilities.
@@ -54,8 +54,7 @@ def export_csv(
     Parameters
     ----------
     cases
-        Optical cases belonging to a single analysis type and
-        wavelength.
+        Optical cases belonging to a single analysis grouping.
 
     Notes
     -----
@@ -64,11 +63,7 @@ def export_csv(
     identical to the Excel export and any future tabular exporters.
     """
 
-    (
-        cases,
-        analysis_type,
-        wavelength_um,
-    ) = validate_export_cases(
+    cases = validate_export_cases(
         cases
     )
 
@@ -94,9 +89,10 @@ def export_csv(
     # Determine the output location.
     # -------------------------------------------------------------
 
+    representative_case = cases[0]
+
     output_file = get_csv_path(
-        analysis_type,
-        wavelength_um,
+        representative_case,
     )
 
     output_file.parent.mkdir(

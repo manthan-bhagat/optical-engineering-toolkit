@@ -55,15 +55,18 @@ from src.plotting.paths import (
 # ---------------------------------------------------------------------
 
 
-def _group_by_wavelength(
+def _group_by_dataset_and_wavelength(
     cases: Iterable[OpticalCase],
-) -> dict[float, list[OpticalCase]]:
+) -> dict[
+    tuple[str, float],
+    list[OpticalCase],
+]:
     """
-    Group thermal cases by wavelength.
+    Group thermal cases by dataset and wavelength.
     """
 
     grouped: dict[
-        float,
+        tuple[str, float],
         list[OpticalCase],
     ] = defaultdict(list)
 
@@ -73,22 +76,31 @@ def _group_by_wavelength(
             continue
 
         if (
-            optical_case.wavelength_um is None
+            optical_case.dataset is None
+            or optical_case.wavelength_um is None
             or optical_case.temperature_c is None
             or optical_case.field_index is None
         ):
             continue
 
         grouped[
-            optical_case.wavelength_um
-        ].append(optical_case)
+            (
+                optical_case.dataset,
+                optical_case.wavelength_um,
+            )
+        ].append(
+            optical_case
+        )
 
     return grouped
 
 
 def _group_by_field(
     cases: Iterable[OpticalCase],
-) -> dict[int, list[OpticalCase]]:
+) -> dict[
+    int,
+    list[OpticalCase],
+]:
     """
     Group cases by field.
 
@@ -102,9 +114,14 @@ def _group_by_field(
 
     for optical_case in cases:
 
+        if optical_case.field_index is None:
+            continue
+
         grouped[
             optical_case.field_index
-        ].append(optical_case)
+        ].append(
+            optical_case
+        )
 
     for field_cases in grouped.values():
 
@@ -121,7 +138,6 @@ def _group_by_field(
 
 def _generate_individual_plots(
     cases: list[OpticalCase],
-    wavelength_um: float,
 ) -> None:
     """
     Generate one plot per field for every registered metric.
@@ -137,6 +153,8 @@ def _generate_individual_plots(
             field_index
         ]
 
+        representative_case = field_cases[0]
+
         for metric in THERMAL_PLOT_METRICS:
 
             temperatures: list[float] = []
@@ -145,7 +163,10 @@ def _generate_individual_plots(
             for case in field_cases:
 
                 try:
-                    value = resolve_attribute(case, metric.attribute_path)
+                    value = resolve_attribute(
+                        case,
+                        metric.attribute_path,
+                    )
 
                 except AttributeError as exc:
 
@@ -156,6 +177,7 @@ def _generate_individual_plots(
                         continue
 
                     raise
+
                 if value is None:
                     continue
 
@@ -173,20 +195,21 @@ def _generate_individual_plots(
             if not values:
                 continue
 
+            title = (
+                f"{metric.title}\n"
+                f"Dataset: {representative_case.dataset.replace('_', ' ').title()}\n"
+                f"λ = {representative_case.wavelength_um:.3f} µm, "
+                f"Field {field_index}"
+            )
+
             plot_metric(
                 x=temperatures,
                 y=values,
                 xlabel="Temperature (°C)",
                 ylabel=metric.ylabel,
-                title=(
-                    f"{metric.title}\n"
-                    f"λ = {wavelength_um:.3f} µm, "
-                    f"Field {field_index}"
-                ),
+                title=title,
                 output_file=get_field_plot_path(
-                    AnalysisType.THERMAL,
-                    wavelength_um,
-                    field_index,
+                    representative_case,
                     metric.filename,
                 ),
             )
@@ -198,7 +221,6 @@ def _generate_individual_plots(
 
 def _generate_combined_plots(
     cases: list[OpticalCase],
-    wavelength_um: float,
 ) -> None:
     """
     Generate one combined plot for every registered metric.
@@ -209,6 +231,8 @@ def _generate_combined_plots(
     grouped_fields = _group_by_field(
         cases
     )
+
+    representative_case = cases[0]
 
     for metric in THERMAL_PLOT_METRICS:
 
@@ -228,7 +252,10 @@ def _generate_combined_plots(
             for case in field_cases:
 
                 try:
-                    value = resolve_attribute(case, metric.attribute_path)
+                    value = resolve_attribute(
+                        case,
+                        metric.attribute_path,
+                    )
 
                 except AttributeError as exc:
 
@@ -274,17 +301,19 @@ def _generate_combined_plots(
         if not series:
             continue
 
+        title = (
+            f"{metric.title}\n"
+            f"Dataset: {representative_case.dataset.replace('_', ' ').title()}\n"
+            f"λ = {representative_case.wavelength_um:.3f} µm"
+        )
+
         plot_multi_metric(
             series=series,
             xlabel="Temperature (°C)",
             ylabel=metric.ylabel,
-            title=(
-                f"{metric.title}\n"
-                f"λ = {wavelength_um:.3f} µm"
-            ),
+            title=title,
             output_file=get_combined_plot_path(
-                AnalysisType.THERMAL,
-                wavelength_um,
+                representative_case,
                 metric.filename,
             ),
             legend_title="Field",
@@ -301,7 +330,7 @@ def generate_thermal_plots(
     """
     Generate the complete thermal plot suite.
 
-    For every wavelength, this function generates
+    For every dataset and wavelength, this function generates
 
     - one combined plot for every registered metric
     - one individual plot per field for every registered metric
@@ -310,27 +339,29 @@ def generate_thermal_plots(
     directory hierarchy managed by plotting.paths.
     """
 
-    grouped_cases = _group_by_wavelength(
+    grouped_cases = _group_by_dataset_and_wavelength(
         cases
     )
 
     if not grouped_cases:
         return
 
-    for wavelength_um in sorted(
-        grouped_cases
-    ):
+    for (
+        dataset,
+        wavelength_um,
+    ) in sorted(grouped_cases):
 
         wavelength_cases = grouped_cases[
-            wavelength_um
+            (
+                dataset,
+                wavelength_um,
+            )
         ]
 
         _generate_combined_plots(
             wavelength_cases,
-            wavelength_um,
         )
 
         _generate_individual_plots(
             wavelength_cases,
-            wavelength_um,
         )

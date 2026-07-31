@@ -6,7 +6,7 @@ Excel exporter for optical analysis results.
 Purpose
 -------
 Exports a collection of OpticalCase objects belonging to a single
-analysis type and wavelength to an Excel workbook.
+analysis grouping to an Excel workbook.
 
 The output location is determined automatically using the centralized
 path utilities.
@@ -55,18 +55,13 @@ def export_excel(
     Parameters
     ----------
     cases
-        Optical cases belonging to a single analysis type and
-        wavelength.
+        Optical cases belonging to a single analysis grouping.
 
     sheet_name
         Name of the worksheet.
     """
 
-    (
-        cases,
-        analysis_type,
-        wavelength_um,
-    ) = validate_export_cases(
+    cases = validate_export_cases(
         cases
     )
 
@@ -92,9 +87,10 @@ def export_excel(
     # Determine the output location.
     # -------------------------------------------------------------
 
+    representative_case = cases[0]
+
     output_file = get_excel_path(
-        analysis_type,
-        wavelength_um,
+        representative_case,
     )
 
     output_file.parent.mkdir(

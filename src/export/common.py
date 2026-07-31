@@ -9,8 +9,8 @@ Provides common validation and helper routines used by all export
 modules.
 
 These helpers ensure that every exporter operates on a consistent
-collection of OpticalCase objects belonging to the same analysis type
-and wavelength.
+collection of OpticalCase objects belonging to the same analysis type,
+dataset (when applicable), and wavelength.
 
 Author: Manthan Bhagat
 Project: Master's Thesis - Zemax Optical Analysis Toolkit
@@ -26,7 +26,6 @@ from typing import Iterable
 # Local Imports
 # ---------------------------------------------------------------------
 
-from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
 
 # ---------------------------------------------------------------------
@@ -36,17 +35,14 @@ from src.models.optical_case import OpticalCase
 
 def validate_export_cases(
     cases: Iterable[OpticalCase],
-) -> tuple[
-    list[OpticalCase],
-    AnalysisType,
-    float,
-]:
+) -> list[OpticalCase]:
     """
     Validate an export case collection.
 
     Every exporter expects all supplied OpticalCase objects to belong to
 
     - one analysis type
+    - one dataset (if applicable)
     - one wavelength
 
     Parameters
@@ -56,18 +52,14 @@ def validate_export_cases(
 
     Returns
     -------
-    tuple
-        (
-            validated_cases,
-            analysis_type,
-            wavelength_um,
-        )
+    list[OpticalCase]
+        Validated optical cases.
 
     Raises
     ------
     ValueError
-        If the collection is empty or contains mixed analysis types
-        or wavelengths.
+        If the collection is empty or contains mixed analysis types,
+        datasets, or wavelengths.
     """
 
     validated_cases = list(cases)
@@ -90,30 +82,27 @@ def validate_export_cases(
         )
 
     analysis_type = first_case.analysis_type
+    dataset = first_case.dataset
     wavelength_um = first_case.wavelength_um
 
     for optical_case in validated_cases[1:]:
 
-        if (
-            optical_case.analysis_type
-            != analysis_type
-        ):
+        if optical_case.analysis_type != analysis_type:
             raise ValueError(
                 "All exported optical cases must belong "
                 "to the same analysis type."
             )
 
-        if (
-            optical_case.wavelength_um
-            != wavelength_um
-        ):
+        if optical_case.dataset != dataset:
+            raise ValueError(
+                "All exported optical cases must belong "
+                "to the same dataset."
+            )
+
+        if optical_case.wavelength_um != wavelength_um:
             raise ValueError(
                 "All exported optical cases must belong "
                 "to the same wavelength."
             )
 
-    return (
-        validated_cases,
-        analysis_type,
-        wavelength_um,
-    )
+    return validated_cases

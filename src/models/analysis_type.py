@@ -16,7 +16,7 @@ Using an enumeration instead of plain strings provides
 
 Examples
 --------
->>> AnalysisType.NOMINAL
+>>> AnalysisType.BASELINE
 >>> AnalysisType.THERMAL
 >>> AnalysisType.MONTE_CARLO
 
@@ -44,9 +44,9 @@ class AnalysisType(str, Enum):
     how collections of cases are grouped, plotted, and exported.
     """
 
-    NOMINAL = "nominal"
+    BASELINE = "baseline"
     """
-    Nominal optical design.
+    Baseline optical design used as the reference configuration.
     """
 
     THERMAL = "thermal"
@@ -118,7 +118,7 @@ class AnalysisType(str, Enum):
         """
 
         return {
-            AnalysisType.NOMINAL: "Nominal Design",
+            AnalysisType.BASELINE: "Baseline Design",
             AnalysisType.THERMAL: "Thermal Analysis",
             AnalysisType.MONTE_CARLO: "Monte Carlo Analysis",
             AnalysisType.TOLERANCE: "Tolerance Analysis",

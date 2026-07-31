@@ -30,9 +30,6 @@ from pathlib import Path
 # ---------------------------------------------------------------------
 
 from src.config import (
-    THERMAL_DIRECTORY,
-    MONTE_CARLO_DIRECTORY,
-    TOLERANCE_DIRECTORY,
     THERMAL_CASE_PREFIX,
     MONTE_CARLO_CASE_PREFIX,
 )
@@ -68,7 +65,7 @@ def load_cases(
 
     thermal_directory = (
         input_directory /
-        THERMAL_DIRECTORY
+        "thermal"
     )
 
     if thermal_directory.exists():
@@ -85,7 +82,7 @@ def load_cases(
 
     montecarlo_directory = (
         input_directory /
-        MONTE_CARLO_DIRECTORY
+        "montecarlo"
     )
 
     if montecarlo_directory.exists():
@@ -102,7 +99,7 @@ def load_cases(
 
     tolerance_directory = (
         input_directory /
-        TOLERANCE_DIRECTORY
+        "tolerance"
     )
 
     #
@@ -118,6 +115,10 @@ def load_cases(
 
     return cases
 
+# ---------------------------------------------------------------------
+# Internal Helpers
+# ---------------------------------------------------------------------
+
 
 # ---------------------------------------------------------------------
 # Internal Helpers
@@ -130,6 +131,7 @@ def _create_case(
     name: str,
     analysis_type: AnalysisType,
     case_directory: Path,
+    dataset: str | None = None,
     wavelength_um: float | None = None,
     field_index: int | None = None,
     temperature_c: float | None = None,
@@ -144,11 +146,16 @@ def _create_case(
         name=name,
         analysis_type=analysis_type,
         case_directory=case_directory,
+        dataset=dataset,
         wavelength_um=wavelength_um,
         field_index=field_index,
         temperature_c=temperature_c,
         statistical_case=statistical_case,
     )
+
+# ---------------------------------------------------------------------
+# Thermal
+# ---------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------
@@ -165,6 +172,46 @@ def _load_thermal_cases(
     Expected directory layout
 
     thermal/
+        dataset/
+            wavelength/
+                temperature/
+                    field_x.xxxxxx/
+                        psf.txt
+                        mtf.txt
+                        wavefront.txt
+    """
+
+    cases: list[OpticalCase] = []
+
+    for dataset_directory in sorted(directory.iterdir()):
+
+        if not dataset_directory.is_dir():
+            continue
+
+        cases.extend(
+
+            _load_thermal_dataset(
+
+                dataset_directory,
+
+                dataset=dataset_directory.name,
+            )
+        )
+
+    return cases
+
+
+def _load_thermal_dataset(
+    directory: Path,
+    *,
+    dataset: str,
+) -> list[OpticalCase]:
+    """
+    Load all thermal cases contained within a single thermal dataset.
+
+    Expected directory layout
+
+    dataset/
         wavelength/
             temperature/
                 field_x.xxxxxx/
@@ -243,12 +290,14 @@ def _load_thermal_cases(
 
                         case_id=(
                             f"{THERMAL_CASE_PREFIX}"
+                            f"_{dataset.upper()}"
                             f"_W{wavelength_um * 1000:.0f}"
                             f"_F{field_index:02d}"
                             f"_T{temperature:+.0f}"
                         ),
 
                         name=(
+                            f"{dataset.capitalize()} | "
                             f"{wavelength_um:.3f} µm | "
                             f"Field {field_index} | "
                             f"{temperature:+.0f} °C"
@@ -257,6 +306,8 @@ def _load_thermal_cases(
                         analysis_type=AnalysisType.THERMAL,
 
                         case_directory=field_directory,
+
+                        dataset=dataset,
 
                         wavelength_um=wavelength_um,
 

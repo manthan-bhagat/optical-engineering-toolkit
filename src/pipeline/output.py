@@ -10,7 +10,7 @@ Zemax Optical Analysis Toolkit.
 
 Responsibilities
 ----------------
-For each analysis type and wavelength:
+For each analysis type, dataset (when applicable), and wavelength:
 
 - Export CSV results
 - Export Excel results
@@ -62,22 +62,29 @@ PLOT_GENERATORS: dict[
 def _group_cases(
     cases: Iterable[OpticalCase],
 ) -> dict[
-    AnalysisType,
-    dict[float, list[OpticalCase]],
+    tuple[
+        AnalysisType,
+        str | None,
+        float,
+    ],
+    list[OpticalCase],
 ]:
     """
     Group optical cases by
 
         Analysis Type
-            └── Wavelength
+            └── Dataset
+                    └── Wavelength
     """
 
     grouped: dict[
-        AnalysisType,
-        dict[float, list[OpticalCase]],
-    ] = defaultdict(
-        lambda: defaultdict(list)
-    )
+        tuple[
+            AnalysisType,
+            str | None,
+            float,
+        ],
+        list[OpticalCase],
+    ] = defaultdict(list)
 
     for optical_case in cases:
 
@@ -88,9 +95,11 @@ def _group_cases(
             continue
 
         grouped[
-            optical_case.analysis_type
-        ][
-            optical_case.wavelength_um
+            (
+                optical_case.analysis_type,
+                optical_case.dataset,
+                optical_case.wavelength_um,
+            )
         ].append(
             optical_case
         )
@@ -118,6 +127,9 @@ def generate_outputs(
     Group by Analysis Type
         ↓
 
+    Group by Dataset
+        ↓
+
     Group by Wavelength
         ↓
 
@@ -131,26 +143,28 @@ def generate_outputs(
     )
 
     for (
-        analysis_type,
-        wavelength_groups,
+        (
+            analysis_type,
+            _dataset,
+            _wavelength_um,
+        ),
+        grouped_cases_list,
     ) in grouped_cases.items():
+
+        export_csv(
+            grouped_cases_list,
+        )
+
+        export_excel(
+            grouped_cases_list,
+        )
 
         plot_generator = PLOT_GENERATORS.get(
             analysis_type
         )
 
-        for wavelength_cases in wavelength_groups.values():
+        if plot_generator is not None:
 
-            export_csv(
-                wavelength_cases,
+            plot_generator(
+                grouped_cases_list,
             )
-
-            export_excel(
-                wavelength_cases,
-            )
-
-            if plot_generator is not None:
-
-                plot_generator(
-                    wavelength_cases,
-                )

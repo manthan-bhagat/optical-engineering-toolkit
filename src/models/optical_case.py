@@ -130,6 +130,29 @@ class OpticalCase:
     """
 
     # -------------------------------------------------------------
+    # Dataset Metadata
+    # -------------------------------------------------------------
+
+    dataset: Optional[str] = None
+    """
+    Name of the dataset containing this analysis case.
+
+    Used to distinguish different collections of the same analysis type.
+
+    Examples
+    --------
+    survival
+
+    operational
+
+    nominal
+
+    baseline
+
+    redesign
+    """
+
+    # -------------------------------------------------------------
     # Optical Coordinates
     # -------------------------------------------------------------
 
