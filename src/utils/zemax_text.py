@@ -214,3 +214,86 @@ def find_section(
         )
 
     return text[index + len(start_marker):]
+
+
+def find_all_matches(
+    pattern: re.Pattern,
+    text: str,
+) -> list[re.Match]:
+    """
+    Return all regular-expression matches.
+
+    Parameters
+    ----------
+    pattern
+        Compiled regular expression.
+
+    text
+        Text to search.
+
+    Returns
+    -------
+    list[re.Match]
+        All matches in the order they appear.
+    """
+
+    return list(pattern.finditer(text))
+
+
+def find_all_sections(
+    text: str,
+    start_marker: str,
+) -> list[str]:
+    """
+    Split a Zemax report into sections beginning with a marker.
+
+    Parameters
+    ----------
+    text
+        Complete Zemax report.
+
+    start_marker
+        Section delimiter.
+
+    Returns
+    -------
+    list[str]
+        Sections beginning with the requested marker.
+
+    Raises
+    ------
+    ValueError
+        If no sections are found.
+    """
+
+    parts = text.split(start_marker)
+
+    if len(parts) <= 1:
+        raise ValueError(
+            f"Unable to locate section '{start_marker}'."
+        )
+
+    return parts[1:]
+
+
+def extract_floats(
+    text: str,
+) -> list[float]:
+    """
+    Extract every floating-point number from a string.
+
+    Parameters
+    ----------
+    text
+        Input text.
+
+    Returns
+    -------
+    list[float]
+        Floating-point values in order of appearance.
+    """
+
+    return [
+        float(value)
+        for value in re.findall(FLOAT_PATTERN, text)
+    ]

@@ -1,19 +1,23 @@
 """
-thermal.py
+monte_carlo.py
 
-Thermal analysis plotting routines.
+Monte Carlo representative trial plotting routines.
 
 Purpose
 -------
-Generates engineering plots for thermal optical analysis.
+Generates engineering plots for representative Monte Carlo optical
+analysis cases.
 
-Plots are generated automatically from the thermal plotting registry.
-For every metric, both
+Plots are generated automatically from the Monte Carlo plotting
+registry. For every metric, both
 
 - combined plots (all fields)
 - individual plots (one field)
 
 are produced.
+
+Representative trials (Best, Mean, Worst, P02, P98, etc.) are treated
+as categorical operating points along the horizontal axis.
 
 No optical metric is hardcoded in this module.
 
@@ -32,6 +36,10 @@ from typing import Iterable
 # Local Imports
 # ---------------------------------------------------------------------
 
+from src.config import (
+    MONTE_CARLO_DATASET_ORDER,
+)
+
 from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
 
@@ -41,7 +49,7 @@ from src.plotting.common import (
 )
 
 from src.plotting.metrics import (
-    THERMAL_PLOT_METRICS,
+    MONTE_CARLO_PLOT_METRICS,
     resolve_attribute,
 )
 
@@ -52,43 +60,72 @@ from src.plotting.paths import (
 
 
 # ---------------------------------------------------------------------
+# Dataset Ordering
+# ---------------------------------------------------------------------
+
+_DATASET_ORDER = {
+    dataset: index
+    for index, dataset in enumerate(
+        MONTE_CARLO_DATASET_ORDER
+    )
+}
+
+
+def _dataset_sort_key(
+    optical_case: OpticalCase,
+) -> tuple[int, str]:
+    """
+    Return the canonical ordering key for representative trials.
+
+    Representative trials are displayed according to the configured
+    engineering ordering. Unknown datasets are appended afterwards in
+    alphabetical order.
+    """
+
+    dataset = optical_case.dataset or ""
+
+    return (
+        _DATASET_ORDER.get(
+            dataset,
+            len(_DATASET_ORDER),
+        ),
+        dataset,
+    )
+
+
+# ---------------------------------------------------------------------
 # Internal Helpers
 # ---------------------------------------------------------------------
 
-
-def _group_by_dataset_and_wavelength(
+def _group_by_wavelength(
     cases: Iterable[OpticalCase],
 ) -> dict[
-    tuple[str, float],
+    float,
     list[OpticalCase],
 ]:
     """
-    Group thermal cases by dataset and wavelength.
+    Group Monte Carlo cases by wavelength.
     """
 
     grouped: dict[
-        tuple[str, float],
+        float,
         list[OpticalCase],
     ] = defaultdict(list)
 
     for optical_case in cases:
 
-        if optical_case.analysis_type != AnalysisType.THERMAL:
+        if optical_case.analysis_type != AnalysisType.MONTE_CARLO:
             continue
 
         if (
             optical_case.dataset is None
             or optical_case.wavelength_um is None
-            or optical_case.temperature_c is None
             or optical_case.field_index is None
         ):
             continue
 
         grouped[
-            (
-                optical_case.dataset,
-                optical_case.wavelength_um,
-            )
+            optical_case.wavelength_um
         ].append(
             optical_case
         )
@@ -105,7 +142,8 @@ def _group_by_field(
     """
     Group cases by field.
 
-    Cases inside every field are sorted by temperature.
+    Cases inside every field are sorted according to the configured
+    representative trial ordering.
     """
 
     grouped: dict[
@@ -127,7 +165,7 @@ def _group_by_field(
     for field_cases in grouped.values():
 
         field_cases.sort(
-            key=lambda case: case.temperature_c
+            key=_dataset_sort_key,
         )
 
     return grouped
@@ -135,7 +173,6 @@ def _group_by_field(
 # ---------------------------------------------------------------------
 # Individual Plot Generation
 # ---------------------------------------------------------------------
-
 
 def _generate_individual_plots(
     cases: list[OpticalCase],
@@ -156,9 +193,9 @@ def _generate_individual_plots(
 
         representative_case = field_cases[0]
 
-        for metric in THERMAL_PLOT_METRICS:
+        for metric in MONTE_CARLO_PLOT_METRICS:
 
-            temperatures: list[float] = []
+            representative_trials: list[str] = []
             values: list[float] = []
 
             for case in field_cases:
@@ -176,8 +213,10 @@ def _generate_individual_plots(
                     #
                     continue
 
-                temperatures.append(
-                    case.temperature_c
+                assert case.dataset is not None
+
+                representative_trials.append(
+                    case.dataset
                 )
 
                 values.append(
@@ -190,17 +229,18 @@ def _generate_individual_plots(
             if not values:
                 continue
 
+            assert representative_case.wavelength_um is not None
+
             title = (
                 f"{metric.title}\n"
-                f"Dataset: {representative_case.dataset.replace('_', ' ').title()}\n"
                 f"λ = {representative_case.wavelength_um:.3f} µm, "
                 f"Field {field_index}"
             )
 
             plot_metric(
-                x=temperatures,
+                x=representative_trials,
                 y=values,
-                xlabel="Temperature (°C)",
+                xlabel="Representative Trial",
                 ylabel=metric.ylabel,
                 title=title,
                 output_file=get_field_plot_path(
@@ -209,10 +249,10 @@ def _generate_individual_plots(
                 ),
             )
 
+
 # ---------------------------------------------------------------------
 # Combined Plot Generation
 # ---------------------------------------------------------------------
-
 
 def _generate_combined_plots(
     cases: list[OpticalCase],
@@ -229,7 +269,7 @@ def _generate_combined_plots(
 
     representative_case = cases[0]
 
-    for metric in THERMAL_PLOT_METRICS:
+    for metric in MONTE_CARLO_PLOT_METRICS:
 
         series: list[
             dict[str, object]
@@ -241,7 +281,7 @@ def _generate_combined_plots(
                 field_index
             ]
 
-            temperatures: list[float] = []
+            representative_trials: list[str] = []
             values: list[float] = []
 
             for case in field_cases:
@@ -259,8 +299,10 @@ def _generate_combined_plots(
                     #
                     continue
 
-                temperatures.append(
-                    case.temperature_c
+                assert case.dataset is not None
+
+                representative_trials.append(
+                    case.dataset
                 )
 
                 values.append(
@@ -279,7 +321,7 @@ def _generate_combined_plots(
                     "label": (
                         f"Field {field_index}"
                     ),
-                    "x": temperatures,
+                    "x": representative_trials,
                     "y": values,
                 }
             )
@@ -290,15 +332,16 @@ def _generate_combined_plots(
         if not series:
             continue
 
+        assert representative_case.wavelength_um is not None
+
         title = (
             f"{metric.title}\n"
-            f"Dataset: {representative_case.dataset.replace('_', ' ').title()}\n"
             f"λ = {representative_case.wavelength_um:.3f} µm"
         )
 
         plot_multi_metric(
             series=series,
-            xlabel="Temperature (°C)",
+            xlabel="Representative Trial",
             ylabel=metric.ylabel,
             title=title,
             output_file=get_combined_plot_path(
@@ -308,43 +351,40 @@ def _generate_combined_plots(
             legend_title="Field",
         )
 
+
 # ---------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------
 
-
-def generate_thermal_plots(
+def generate_montecarlo_plots(
     cases: Iterable[OpticalCase],
 ) -> None:
     """
-    Generate the complete thermal plot suite.
+    Generate the complete Monte Carlo representative trial plot suite.
 
-    For every dataset and wavelength, this function generates
+    For every wavelength, this function generates
 
     - one combined plot for every registered metric
     - one individual plot per field for every registered metric
 
-    The generated figures are written to the standard thermal output
-    directory hierarchy managed by plotting.paths.
+    Representative trials (Best, Mean, Worst, P02, P98, etc.) are
+    plotted along the horizontal axis.
+
+    The generated figures are written to the standard Monte Carlo
+    output directory hierarchy managed by plotting.paths.
     """
 
-    grouped_cases = _group_by_dataset_and_wavelength(
+    grouped_cases = _group_by_wavelength(
         cases
     )
 
     if not grouped_cases:
         return
 
-    for (
-        dataset,
-        wavelength_um,
-    ) in sorted(grouped_cases):
+    for wavelength_um in sorted(grouped_cases):
 
         wavelength_cases = grouped_cases[
-            (
-                dataset,
-                wavelength_um,
-            )
+            wavelength_um
         ]
 
         _generate_combined_plots(

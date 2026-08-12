@@ -29,77 +29,144 @@ Project: Master's Thesis - Zemax Optical Analysis Toolkit
 # ---------------------------------------------------------------------
 
 from collections import defaultdict
-from typing import Callable, Iterable
+from typing import Iterable
 
 # ---------------------------------------------------------------------
 # Local Imports
 # ---------------------------------------------------------------------
 
-from src.export.csv import export_csv
-from src.export.excel import export_excel
+from src.export.optical_csv import export_csv
+from src.export.optical_excel import export_excel
+
+from src.export.baseline_csv import (
+    export_baseline_csv,
+)
+
+from src.export.baseline_excel import (
+    export_baseline_excel,
+)
 
 from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
 
-from src.plotting.thermal import generate_thermal_plots
+from src.plotting.monte_carlo import (
+    generate_montecarlo_plots,
+)
 
-# ---------------------------------------------------------------------
-# Plot Generator Registry
-# ---------------------------------------------------------------------
+from src.plotting.thermal import (
+    generate_thermal_plots,
+)
 
-PLOT_GENERATORS: dict[
-    AnalysisType,
-    Callable[[Iterable[OpticalCase]], None],
-] = {
-    AnalysisType.THERMAL: generate_thermal_plots,
-}
+from src.report.output import (
+    generate_reports,
+)
+
+from src.plotting.baseline import (
+    generate_baseline_plots,
+)
 
 # ---------------------------------------------------------------------
 # Internal Helpers
 # ---------------------------------------------------------------------
 
+def _get_baseline_cases(
+    cases: Iterable[OpticalCase],
+) -> list[OpticalCase]:
+    """
+    Return the baseline operating condition.
 
-def _group_cases(
+    The baseline corresponds to the reference thermal configuration
+    (20 °C).
+    """
+
+    baseline_cases: list[OpticalCase] = []
+
+    for optical_case in cases:
+
+        if (
+            optical_case.analysis_type != AnalysisType.THERMAL
+            or optical_case.temperature_c is None
+        ):
+            continue
+
+        if abs(
+            optical_case.temperature_c - 20.0
+        ) < 1e-6:
+
+            baseline_cases.append(
+                optical_case
+            )
+
+    return baseline_cases
+
+
+def _group_thermal_cases(
     cases: Iterable[OpticalCase],
 ) -> dict[
-    tuple[
-        AnalysisType,
-        str | None,
-        float,
-    ],
+    tuple[str, float],
     list[OpticalCase],
 ]:
     """
-    Group optical cases by
+    Group thermal cases by
 
-        Analysis Type
-            └── Dataset
-                    └── Wavelength
+        Dataset
+            └── Wavelength
     """
 
     grouped: dict[
-        tuple[
-            AnalysisType,
-            str | None,
-            float,
-        ],
+        tuple[str, float],
         list[OpticalCase],
     ] = defaultdict(list)
 
     for optical_case in cases:
 
         if (
-            optical_case.analysis_type is None
+            optical_case.analysis_type != AnalysisType.THERMAL
+            or optical_case.dataset is None
             or optical_case.wavelength_um is None
         ):
             continue
 
         grouped[
             (
-                optical_case.analysis_type,
                 optical_case.dataset,
                 optical_case.wavelength_um,
             )
+        ].append(
+            optical_case
+        )
+
+    return grouped
+
+
+def _group_montecarlo_cases(
+    cases: Iterable[OpticalCase],
+) -> dict[
+    float,
+    list[OpticalCase],
+]:
+    """
+    Group Monte Carlo cases by wavelength.
+
+    Representative trials remain within each group so they can be
+    plotted against one another.
+    """
+
+    grouped: dict[
+        float,
+        list[OpticalCase],
+    ] = defaultdict(list)
+
+    for optical_case in cases:
+
+        if (
+            optical_case.analysis_type != AnalysisType.MONTE_CARLO
+            or optical_case.wavelength_um is None
+        ):
+            continue
+
+        grouped[
+            optical_case.wavelength_um
         ].append(
             optical_case
         )
@@ -117,54 +184,85 @@ def generate_outputs(
 ) -> None:
     """
     Generate every exported artifact.
-
-    Workflow
-    --------
-
-    Cases
-        ↓
-
-    Group by Analysis Type
-        ↓
-
-    Group by Dataset
-        ↓
-
-    Group by Wavelength
-        ↓
-
-    CSV
-    Excel
-    Figures
     """
 
-    grouped_cases = _group_cases(
+    # -------------------------------------------------------------
+    # Thermal
+    # -------------------------------------------------------------
+
+    thermal_groups = _group_thermal_cases(
         cases
     )
 
-    for (
-        (
-            analysis_type,
-            _dataset,
-            _wavelength_um,
-        ),
-        grouped_cases_list,
-    ) in grouped_cases.items():
-
+    for thermal_cases in thermal_groups.values():
         export_csv(
-            grouped_cases_list,
+            thermal_cases,
         )
 
         export_excel(
-            grouped_cases_list,
+            thermal_cases,
         )
 
-        plot_generator = PLOT_GENERATORS.get(
-            analysis_type
+        generate_thermal_plots(
+            thermal_cases,
         )
 
-        if plot_generator is not None:
+        #
+        # Reports require every thermal CSV to exist before the
+        # canonical summary can be constructed.
+        #
+        if thermal_groups:
+            generate_reports(
+                AnalysisType.THERMAL,
+            )
 
-            plot_generator(
-                grouped_cases_list,
+    # -------------------------------------------------------------
+    # Baseline
+    # -------------------------------------------------------------
+
+    baseline_cases = _get_baseline_cases(
+        cases
+    )
+
+    if baseline_cases:
+        export_baseline_csv(
+            baseline_cases,
+        )
+
+        export_baseline_excel(
+            baseline_cases,
+        )
+
+        generate_baseline_plots(
+            baseline_cases,
+        )
+
+    # -------------------------------------------------------------
+    # Monte Carlo
+    # -------------------------------------------------------------
+
+    montecarlo_groups = _group_montecarlo_cases(
+        cases
+    )
+
+    for montecarlo_cases in montecarlo_groups.values():
+        export_csv(
+            montecarlo_cases,
+        )
+
+        export_excel(
+            montecarlo_cases,
+        )
+
+        generate_montecarlo_plots(
+            montecarlo_cases,
+        )
+
+        #
+        # Reports require every Monte Carlo CSV to exist before the
+        # canonical summary can be constructed.
+        #
+        if montecarlo_groups:
+            generate_reports(
+                AnalysisType.MONTE_CARLO,
             )

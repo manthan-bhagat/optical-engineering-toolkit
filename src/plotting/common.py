@@ -39,6 +39,8 @@ from src.config import (
     MULTI_PLOT_LINE_WIDTH,
     PLOT_MARKER,
     PLOT_MARKER_SIZE,
+    MULTI_PLOT_MARKER,
+    MULTI_PLOT_MARKER_SIZE,
     GRID_ALPHA,
     GRID_LINESTYLE,
     GRID_LINE_WIDTH,
@@ -167,8 +169,8 @@ def _save_figure(
 # ---------------------------------------------------------------------
 
 def plot_metric(
-    x: Iterable[float],
-    y: Iterable[float],
+    x: Iterable[str | float],
+    y: Iterable[str | float],
     *,
     xlabel: str,
     ylabel: str,
@@ -314,6 +316,8 @@ def plot_multi_metric(
             x,
             y,
             color=color,
+            marker=MULTI_PLOT_MARKER,
+            markersize=MULTI_PLOT_MARKER_SIZE,
             linewidth=MULTI_PLOT_LINE_WIDTH,
             label=curve["label"],
         )

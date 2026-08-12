@@ -9,8 +9,12 @@ Provides common validation and helper routines used by all export
 modules.
 
 These helpers ensure that every exporter operates on a consistent
-collection of OpticalCase objects belonging to the same analysis type,
-dataset (when applicable), and wavelength.
+collection of OpticalCase objects appropriate for the corresponding
+analysis type.
+
+This module also provides shared table-merging utilities so repeated
+pipeline executions update existing export files instead of replacing
+previous results.
 
 Author: Manthan Bhagat
 Project: Master's Thesis - Zemax Optical Analysis Toolkit
@@ -23,9 +27,18 @@ Project: Master's Thesis - Zemax Optical Analysis Toolkit
 from typing import Iterable
 
 # ---------------------------------------------------------------------
+# Third-Party Imports
+# ---------------------------------------------------------------------
+
+import pandas as pd
+
+# ---------------------------------------------------------------------
 # Local Imports
 # ---------------------------------------------------------------------
 
+from src.config import RESULT_COLUMNS
+
+from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
 
 # ---------------------------------------------------------------------
@@ -42,8 +55,18 @@ def validate_export_cases(
     Every exporter expects all supplied OpticalCase objects to belong to
 
     - one analysis type
-    - one dataset (if applicable)
     - one wavelength
+
+    Additional constraints depend on the analysis type.
+
+    Thermal
+    -------
+    All cases must belong to the same dataset.
+
+    Monte Carlo
+    -----------
+    Representative trials are intentionally exported together, so
+    multiple datasets are permitted.
 
     Parameters
     ----------
@@ -58,8 +81,7 @@ def validate_export_cases(
     Raises
     ------
     ValueError
-        If the collection is empty or contains mixed analysis types,
-        datasets, or wavelengths.
+        If the collection is empty or contains inconsistent metadata.
     """
 
     validated_cases = list(cases)
@@ -87,22 +109,159 @@ def validate_export_cases(
 
     for optical_case in validated_cases[1:]:
 
+        # ---------------------------------------------------------
+        # Analysis Type
+        # ---------------------------------------------------------
+
         if optical_case.analysis_type != analysis_type:
             raise ValueError(
                 "All exported optical cases must belong "
                 "to the same analysis type."
             )
 
-        if optical_case.dataset != dataset:
-            raise ValueError(
-                "All exported optical cases must belong "
-                "to the same dataset."
-            )
+        # ---------------------------------------------------------
+        # Thermal Dataset
+        # ---------------------------------------------------------
 
-        if optical_case.wavelength_um != wavelength_um:
-            raise ValueError(
-                "All exported optical cases must belong "
-                "to the same wavelength."
-            )
+        if analysis_type == AnalysisType.THERMAL:
+
+            if optical_case.dataset != dataset:
+                raise ValueError(
+                    "All exported thermal cases must belong "
+                    "to the same dataset."
+                )
+
+        # ---------------------------------------------------------
+        # Wavelength
+        #
+        # Thermal and Monte Carlo exports are generated one
+        # wavelength at a time. Baseline exports intentionally
+        # contain multiple wavelengths.
+        # ---------------------------------------------------------
+
+        if analysis_type in (
+                AnalysisType.THERMAL,
+                AnalysisType.MONTE_CARLO,
+        ):
+
+            if optical_case.wavelength_um != wavelength_um:
+                raise ValueError(
+                    "All exported optical cases must belong "
+                    "to the same wavelength."
+                )
 
     return validated_cases
+
+
+# ---------------------------------------------------------------------
+# Table Merge
+# ---------------------------------------------------------------------
+
+
+def merge_export_table(
+    existing: pd.DataFrame | None,
+    new: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Merge newly generated results into an existing export table.
+
+    Rows are matched using the unique Case ID. Existing values are
+    preserved unless a new non-null value is supplied.
+
+    Parameters
+    ----------
+    existing
+        Previously exported table. May be None.
+
+    new
+        Newly generated export table.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Merged export table.
+    """
+
+    # -------------------------------------------------------------
+    # First export.
+    # -------------------------------------------------------------
+
+    if existing is None or existing.empty:
+
+        return (
+            new
+            .reindex(columns=RESULT_COLUMNS)
+            .copy()
+        )
+
+    # -------------------------------------------------------------
+    # Ensure both tables use the same schema.
+    # -------------------------------------------------------------
+
+    existing = existing.reindex(
+        columns=RESULT_COLUMNS
+    )
+
+    new = new.reindex(
+        columns=RESULT_COLUMNS
+    )
+
+    # -------------------------------------------------------------
+    # Use Case ID as the merge key.
+    # -------------------------------------------------------------
+
+    existing = existing.set_index(
+        "Case ID",
+        drop=False,
+    )
+
+    new = new.set_index(
+        "Case ID",
+        drop=False,
+    )
+
+    # -------------------------------------------------------------
+    # Update existing rows.
+    # -------------------------------------------------------------
+
+    for case_id in new.index:
+
+        if case_id not in existing.index:
+
+            #
+            # Brand-new optical case.
+            #
+            existing.loc[case_id] = new.loc[
+                case_id
+            ]
+
+            continue
+
+        #
+        # Only overwrite columns with newly available values.
+        #
+        for column in RESULT_COLUMNS:
+
+            value = new.at[
+                case_id,
+                column,
+            ]
+
+            if pd.notna(value):
+
+                existing.at[
+                    case_id,
+                    column,
+                ] = value
+
+    # -------------------------------------------------------------
+    # Restore normal indexing.
+    # -------------------------------------------------------------
+
+    merged = (
+        existing
+        .reset_index(drop=True)
+        .reindex(columns=RESULT_COLUMNS)
+    )
+
+    return merged

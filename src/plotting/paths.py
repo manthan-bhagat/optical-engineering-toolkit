@@ -32,7 +32,7 @@ output/
 │   ├── operational/
 │   └── nominal/
 │
-├── montecarlo/
+├── monte-carlo/
 └── tolerance/
 
 Author: Manthan Bhagat
@@ -119,7 +119,8 @@ def get_dataset_directory(
     case: OpticalCase,
 ) -> Path:
     """
-    Return the dataset output directory.
+    Return the directory immediately preceding the wavelength
+    directory.
 
     Thermal
     -------
@@ -127,12 +128,23 @@ def get_dataset_directory(
         thermal/
             survival/
 
-    Other analyses
-    --------------
-    If no dataset is defined, the analysis directory is returned.
+    Monte Carlo
+    -----------
+    output/
+        monte-carlo/
+
+    Tolerance
+    ---------
+    Future analyses may define their own hierarchy.
     """
 
-    directory = get_analysis_directory(case)
+    directory = get_analysis_directory(
+        case
+    )
+
+    # -------------------------------------------------------------
+    # Thermal
+    # -------------------------------------------------------------
 
     if case.analysis_type == AnalysisType.THERMAL:
 
@@ -140,6 +152,27 @@ def get_dataset_directory(
             raise ValueError(
                 "Thermal OpticalCase must define a dataset."
             )
+
+        return (
+            directory
+            / case.dataset
+        )
+
+    # -------------------------------------------------------------
+    # Monte Carlo
+    # -------------------------------------------------------------
+
+    if case.analysis_type == AnalysisType.MONTE_CARLO:
+
+        #
+        # Representative trials are the independent variable and are
+        # therefore not part of the output directory hierarchy.
+        #
+        return directory
+
+    # -------------------------------------------------------------
+    # Default
+    # -------------------------------------------------------------
 
     if case.dataset:
 
@@ -369,6 +402,172 @@ def get_field_plot_path(
     return (
         get_field_directory(
             case
+        )
+        / filename
+    )
+
+def get_tolerance_figure_path(
+    filename: str,
+) -> Path:
+    """
+    Return the path for a tolerance analysis figure.
+
+    Example
+    -------
+    output/
+        tolerance/
+            figures/
+                histogram.png
+    """
+
+    return (
+        OUTPUT_DIRECTORY
+        / "tolerance"
+        / "figures"
+        / filename
+    )
+
+# ---------------------------------------------------------------------
+# Baseline Output Directories
+# ---------------------------------------------------------------------
+
+
+def get_baseline_directory() -> Path:
+    """
+    Return the root baseline output directory.
+
+    Example
+    -------
+    output/
+        baseline/
+    """
+
+    return (
+        OUTPUT_DIRECTORY
+        / "baseline"
+    )
+
+
+def get_baseline_csv_path() -> Path:
+    """
+    Return the baseline CSV export path.
+
+    Example
+    -------
+    output/
+        baseline/
+            results.csv
+    """
+
+    return (
+        get_baseline_directory()
+        / "results.csv"
+    )
+
+
+def get_baseline_excel_path() -> Path:
+    """
+    Return the baseline Excel export path.
+
+    Example
+    -------
+    output/
+        baseline/
+            results.xlsx
+    """
+
+    return (
+        get_baseline_directory()
+        / "results.xlsx"
+    )
+
+
+def get_baseline_figures_directory() -> Path:
+    """
+    Return the baseline figures directory.
+
+    Example
+    -------
+    output/
+        baseline/
+            figures/
+    """
+
+    return (
+        get_baseline_directory()
+        / "figures"
+    )
+
+
+def get_baseline_combined_figures_directory() -> Path:
+    """
+    Return the baseline combined figures directory.
+    """
+
+    return (
+        get_baseline_figures_directory()
+        / "combined"
+    )
+
+
+def get_baseline_individual_figures_directory() -> Path:
+    """
+    Return the baseline individual figures directory.
+    """
+
+    return (
+        get_baseline_figures_directory()
+        / "individual"
+    )
+
+
+def get_baseline_field_directory(
+    field_index: int,
+) -> Path:
+    """
+    Return the baseline directory for one field.
+
+    Example
+    -------
+    output/
+        baseline/
+            figures/
+                individual/
+                    field_01/
+    """
+
+    return (
+        get_baseline_individual_figures_directory()
+        / _format_field(
+            field_index
+        )
+    )
+
+
+def get_baseline_combined_plot_path(
+    filename: str,
+) -> Path:
+    """
+    Return the path to one baseline combined plot.
+    """
+
+    return (
+        get_baseline_combined_figures_directory()
+        / filename
+    )
+
+
+def get_baseline_field_plot_path(
+    field_index: int,
+    filename: str,
+) -> Path:
+    """
+    Return the path to one baseline individual field plot.
+    """
+
+    return (
+        get_baseline_field_directory(
+            field_index
         )
         / filename
     )

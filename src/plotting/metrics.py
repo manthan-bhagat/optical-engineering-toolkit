@@ -97,6 +97,38 @@ THERMAL_PLOT_METRICS: tuple[PlotMetric, ...] = (
     ),
 
     # -------------------------------------------------------------
+    # Spot Diagram
+    # -------------------------------------------------------------
+
+    PlotMetric(
+        attribute_path="spot_field.rms_radius_um",
+        ylabel="RMS Spot Radius (µm)",
+        title="RMS Spot Radius vs Temperature",
+        filename="rms_spot_radius_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="spot_field.rms_x_um",
+        ylabel="RMS Spot X Size (µm)",
+        title="RMS Spot X Size vs Temperature",
+        filename="rms_spot_x_size_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="spot_field.rms_y_um",
+        ylabel="RMS Spot Y Size (µm)",
+        title="RMS Spot Y Size vs Temperature",
+        filename="rms_spot_y_size_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="spot_field.max_radius_um",
+        ylabel="Maximum Spot Radius (µm)",
+        title="Maximum Spot Radius vs Temperature",
+        filename="maximum_spot_radius_vs_temperature.png",
+    ),
+
+    # -------------------------------------------------------------
     # Half-Maximum Geometry
     # -------------------------------------------------------------
 
@@ -168,28 +200,53 @@ THERMAL_PLOT_METRICS: tuple[PlotMetric, ...] = (
     ),
 
     # -------------------------------------------------------------
-    # MTF
+    # MTF (17.2 lp/mm)
     # -------------------------------------------------------------
 
     PlotMetric(
-        attribute_path="mtf_data.tangential_mtf",
+        attribute_path="mtf_data.tangential_17_2",
         ylabel="Tangential MTF",
-        title="Tangential MTF vs Temperature",
-        filename="tangential_mtf_vs_temperature.png",
+        title="Tangential MTF @ 17.2 lp/mm vs Temperature",
+        filename="tangential_mtf_17_2_vs_temperature.png",
     ),
 
     PlotMetric(
-        attribute_path="mtf_data.sagittal_mtf",
+        attribute_path="mtf_data.sagittal_17_2",
         ylabel="Sagittal MTF",
-        title="Sagittal MTF vs Temperature",
-        filename="sagittal_mtf_vs_temperature.png",
+        title="Sagittal MTF @ 17.2 lp/mm vs Temperature",
+        filename="sagittal_mtf_17_2_vs_temperature.png",
     ),
 
     PlotMetric(
-        attribute_path="mtf_data.mean_mtf",
+        attribute_path="mtf_analysis.mean_17_2",
         ylabel="Mean MTF",
-        title="Mean MTF vs Temperature",
-        filename="mean_mtf_vs_temperature.png",
+        title="Mean MTF @ 17.2 lp/mm vs Temperature",
+        filename="mean_mtf_17_2_vs_temperature.png",
+    ),
+
+    # -------------------------------------------------------------
+    # MTF (41.7 lp/mm)
+    # -------------------------------------------------------------
+
+    PlotMetric(
+        attribute_path="mtf_data.tangential_41_7",
+        ylabel="Tangential MTF",
+        title="Tangential MTF @ 41.7 lp/mm vs Temperature",
+        filename="tangential_mtf_41_7_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="mtf_data.sagittal_41_7",
+        ylabel="Sagittal MTF",
+        title="Sagittal MTF @ 41.7 lp/mm vs Temperature",
+        filename="sagittal_mtf_41_7_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="mtf_analysis.mean_41_7",
+        ylabel="Mean MTF",
+        title="Mean MTF @ 41.7 lp/mm vs Temperature",
+        filename="mean_mtf_41_7_vs_temperature.png",
     ),
 
     # -------------------------------------------------------------
@@ -204,14 +261,80 @@ THERMAL_PLOT_METRICS: tuple[PlotMetric, ...] = (
     ),
 
     PlotMetric(
-        attribute_path="wavefront_data.rms_wfe",
-        ylabel="RMS Wavefront Error",
+        attribute_path="wavefront_analysis.rms_waves",
+        ylabel="RMS Wavefront Error (waves)",
         title="RMS Wavefront Error vs Temperature",
-        filename="rms_wfe_vs_temperature.png",
+        filename="rms_wavefront_error_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="wavefront_analysis.peak_to_valley_waves",
+        ylabel="Peak-to-Valley Wavefront Error (waves)",
+        title="Peak-to-Valley Wavefront Error vs Temperature",
+        filename="pv_wavefront_error_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="wavefront_analysis.mean_waves",
+        ylabel="Mean Wavefront (waves)",
+        title="Mean Wavefront vs Temperature",
+        filename="mean_wavefront_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path="wavefront_analysis.standard_deviation_waves",
+        ylabel="Wavefront Standard Deviation (waves)",
+        title="Wavefront Standard Deviation vs Temperature",
+        filename="wavefront_standard_deviation_vs_temperature.png",
     ),
 
 )
 
+# ---------------------------------------------------------------------
+# Monte Carlo Plot Registry
+# ---------------------------------------------------------------------
+
+MONTE_CARLO_PLOT_METRICS: tuple[PlotMetric, ...] = tuple(
+
+    PlotMetric(
+        attribute_path=metric.attribute_path,
+        ylabel=metric.ylabel,
+        title=metric.title.replace(
+            "vs Temperature",
+            "vs Representative Trial",
+        ),
+        filename=metric.filename.replace(
+            "_vs_temperature",
+            "_vs_representative_trial",
+        ),
+    )
+
+    for metric in THERMAL_PLOT_METRICS
+
+)
+
+# ---------------------------------------------------------------------
+# Baseline Plot Registry
+# ---------------------------------------------------------------------
+
+BASELINE_PLOT_METRICS: tuple[PlotMetric, ...] = tuple(
+
+    PlotMetric(
+        attribute_path=metric.attribute_path,
+        ylabel=metric.ylabel,
+        title=metric.title.replace(
+            "vs Temperature",
+            "vs Wavelength",
+        ),
+        filename=metric.filename.replace(
+            "_vs_temperature",
+            "_vs_wavelength",
+        ),
+    )
+
+    for metric in THERMAL_PLOT_METRICS
+
+)
 
 # ---------------------------------------------------------------------
 # Public Helpers
@@ -247,8 +370,18 @@ def resolve_attribute(
 
     for attribute in attribute_path.split("."):
 
+        if current is None:
+            raise AttributeError(
+                f"Unable to resolve attribute path "
+                f"'{attribute_path}'."
+            )
+
         try:
-            current = getattr(current, attribute)
+
+            current = getattr(
+                current,
+                attribute,
+            )
 
         except AttributeError as exc:
 

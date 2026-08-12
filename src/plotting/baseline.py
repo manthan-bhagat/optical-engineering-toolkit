@@ -1,19 +1,20 @@
 """
-thermal.py
+baseline.py
 
-Thermal analysis plotting routines.
+Baseline optical performance plotting routines.
 
 Purpose
 -------
-Generates engineering plots for thermal optical analysis.
+Generates wavelength-dependent engineering plots for the baseline
+optical design.
 
-Plots are generated automatically from the thermal plotting registry.
-For every metric, both
+Unlike the thermal analysis, the baseline analysis represents a single
+reference operating condition. For every registered metric, both
 
 - combined plots (all fields)
 - individual plots (one field)
 
-are produced.
+are generated as a function of wavelength.
 
 No optical metric is hardcoded in this module.
 
@@ -35,65 +36,28 @@ from typing import Iterable
 from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
 
+from src.config import (
+    BASELINE_TEMPERATURE_C,
+)
+
 from src.plotting.common import (
     plot_metric,
     plot_multi_metric,
 )
 
 from src.plotting.metrics import (
-    THERMAL_PLOT_METRICS,
+    BASELINE_PLOT_METRICS,
     resolve_attribute,
 )
 
 from src.plotting.paths import (
-    get_combined_plot_path,
-    get_field_plot_path,
+    get_baseline_combined_plot_path,
+    get_baseline_field_plot_path,
 )
-
 
 # ---------------------------------------------------------------------
 # Internal Helpers
 # ---------------------------------------------------------------------
-
-
-def _group_by_dataset_and_wavelength(
-    cases: Iterable[OpticalCase],
-) -> dict[
-    tuple[str, float],
-    list[OpticalCase],
-]:
-    """
-    Group thermal cases by dataset and wavelength.
-    """
-
-    grouped: dict[
-        tuple[str, float],
-        list[OpticalCase],
-    ] = defaultdict(list)
-
-    for optical_case in cases:
-
-        if optical_case.analysis_type != AnalysisType.THERMAL:
-            continue
-
-        if (
-            optical_case.dataset is None
-            or optical_case.wavelength_um is None
-            or optical_case.temperature_c is None
-            or optical_case.field_index is None
-        ):
-            continue
-
-        grouped[
-            (
-                optical_case.dataset,
-                optical_case.wavelength_um,
-            )
-        ].append(
-            optical_case
-        )
-
-    return grouped
 
 
 def _group_by_field(
@@ -103,9 +67,9 @@ def _group_by_field(
     list[OpticalCase],
 ]:
     """
-    Group cases by field.
+    Group baseline cases by field.
 
-    Cases inside every field are sorted by temperature.
+    Cases inside each field are sorted by wavelength.
     """
 
     grouped: dict[
@@ -115,7 +79,13 @@ def _group_by_field(
 
     for optical_case in cases:
 
-        if optical_case.field_index is None:
+        if optical_case.analysis_type != AnalysisType.BASELINE:
+            continue
+
+        if (
+            optical_case.field_index is None
+            or optical_case.wavelength_um is None
+        ):
             continue
 
         grouped[
@@ -127,10 +97,11 @@ def _group_by_field(
     for field_cases in grouped.values():
 
         field_cases.sort(
-            key=lambda case: case.temperature_c
+            key=lambda case: case.wavelength_um
         )
 
     return grouped
+
 
 # ---------------------------------------------------------------------
 # Individual Plot Generation
@@ -141,7 +112,7 @@ def _generate_individual_plots(
     cases: list[OpticalCase],
 ) -> None:
     """
-    Generate one plot per field for every registered metric.
+    Generate one wavelength plot per field for every registered metric.
     """
 
     grouped_fields = _group_by_field(
@@ -156,58 +127,53 @@ def _generate_individual_plots(
 
         representative_case = field_cases[0]
 
-        for metric in THERMAL_PLOT_METRICS:
+        for metric in BASELINE_PLOT_METRICS:
 
-            temperatures: list[float] = []
+            wavelengths: list[float] = []
             values: list[float] = []
 
             for case in field_cases:
 
                 try:
+
                     value = resolve_attribute(
                         case,
                         metric.attribute_path,
                     )
 
                 except AttributeError:
-                    #
-                    # The analysis required for this metric has not been
-                    # computed for this OpticalCase.
-                    #
                     continue
 
-                temperatures.append(
-                    case.temperature_c
+                wavelengths.append(
+                    case.wavelength_um * 1000.0
                 )
 
                 values.append(
                     value
                 )
 
-            #
-            # Nothing available for this metric.
-            #
             if not values:
                 continue
 
             title = (
                 f"{metric.title}\n"
-                f"Dataset: {representative_case.dataset.replace('_', ' ').title()}\n"
-                f"λ = {representative_case.wavelength_um:.3f} µm, "
+                f"Baseline Temperature = "
+                f"{BASELINE_TEMPERATURE_C:.0f} °C\n"
                 f"Field {field_index}"
             )
 
             plot_metric(
-                x=temperatures,
+                x=wavelengths,
                 y=values,
-                xlabel="Temperature (°C)",
+                xlabel="Wavelength (nm)",
                 ylabel=metric.ylabel,
                 title=title,
-                output_file=get_field_plot_path(
-                    representative_case,
+                output_file=get_baseline_field_plot_path(
+                    field_index,
                     metric.filename,
                 ),
             )
+
 
 # ---------------------------------------------------------------------
 # Combined Plot Generation
@@ -218,7 +184,7 @@ def _generate_combined_plots(
     cases: list[OpticalCase],
 ) -> None:
     """
-    Generate one combined plot for every registered metric.
+    Generate one combined wavelength plot for every registered metric.
 
     Each combined plot contains one curve per field.
     """
@@ -227,9 +193,7 @@ def _generate_combined_plots(
         cases
     )
 
-    representative_case = cases[0]
-
-    for metric in THERMAL_PLOT_METRICS:
+    for metric in BASELINE_PLOT_METRICS:
 
         series: list[
             dict[str, object]
@@ -241,35 +205,29 @@ def _generate_combined_plots(
                 field_index
             ]
 
-            temperatures: list[float] = []
+            wavelengths: list[float] = []
             values: list[float] = []
 
             for case in field_cases:
 
                 try:
+
                     value = resolve_attribute(
                         case,
                         metric.attribute_path,
                     )
 
                 except AttributeError:
-                    #
-                    # The analysis required for this metric has not been
-                    # computed for this OpticalCase.
-                    #
                     continue
 
-                temperatures.append(
-                    case.temperature_c
+                wavelengths.append(
+                    case.wavelength_um * 1000.0
                 )
 
                 values.append(
                     value
                 )
 
-            #
-            # This field has no data for this metric.
-            #
             if not values:
                 continue
 
@@ -279,78 +237,72 @@ def _generate_combined_plots(
                     "label": (
                         f"Field {field_index}"
                     ),
-                    "x": temperatures,
+                    "x": wavelengths,
                     "y": values,
                 }
             )
 
-        #
-        # No field contains this metric.
-        #
         if not series:
             continue
 
         title = (
             f"{metric.title}\n"
-            f"Dataset: {representative_case.dataset.replace('_', ' ').title()}\n"
-            f"λ = {representative_case.wavelength_um:.3f} µm"
+            f"Baseline Temperature = "
+            f"{BASELINE_TEMPERATURE_C:.0f} °C"
         )
 
         plot_multi_metric(
             series=series,
-            xlabel="Temperature (°C)",
+            xlabel="Wavelength (nm)",
             ylabel=metric.ylabel,
             title=title,
-            output_file=get_combined_plot_path(
-                representative_case,
+            output_file=get_baseline_combined_plot_path(
                 metric.filename,
             ),
             legend_title="Field",
         )
+
 
 # ---------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------
 
 
-def generate_thermal_plots(
+def generate_baseline_plots(
     cases: Iterable[OpticalCase],
 ) -> None:
     """
-    Generate the complete thermal plot suite.
+    Generate the complete baseline plot suite.
 
-    For every dataset and wavelength, this function generates
+    For the reference baseline optical configuration, wavelength-
+    dependent engineering plots are generated.
 
-    - one combined plot for every registered metric
-    - one individual plot per field for every registered metric
+    For every registered metric, this function generates
 
-    The generated figures are written to the standard thermal output
-    directory hierarchy managed by plotting.paths.
+    - one combined plot containing every field
+    - one individual plot for each field
+
+    The generated figures are written to the baseline output directory
+    hierarchy managed by plotting.paths.
     """
 
-    grouped_cases = _group_by_dataset_and_wavelength(
-        cases
-    )
+    baseline_cases = [
 
-    if not grouped_cases:
+        case
+
+        for case in cases
+
+        if case.analysis_type == AnalysisType.BASELINE
+
+    ]
+
+    if not baseline_cases:
         return
 
-    for (
-        dataset,
-        wavelength_um,
-    ) in sorted(grouped_cases):
+    _generate_combined_plots(
+        baseline_cases,
+    )
 
-        wavelength_cases = grouped_cases[
-            (
-                dataset,
-                wavelength_um,
-            )
-        ]
-
-        _generate_combined_plots(
-            wavelength_cases,
-        )
-
-        _generate_individual_plots(
-            wavelength_cases,
-        )
+    _generate_individual_plots(
+        baseline_cases,
+    )

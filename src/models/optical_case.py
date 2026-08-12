@@ -69,17 +69,13 @@ from typing import Optional
 from src.models.analysis_type import AnalysisType
 from src.models.psf_analysis import PSFAnalysis
 from src.models.psf_data import PSFData
+from src.models.mtf_analysis import MTFAnalysis
+from src.models.mtf_data import MTFData
 
-#
-# Future imports
-#
-# from src.models.mtf_data import MTFData
-# from src.models.mtf_analysis import MTFAnalysis
-# from src.models.rms_spot_data import RMSSpotData
-# from src.models.rms_spot_analysis import RMSSpotAnalysis
-# from src.models.wavefront_data import WavefrontData
-# from src.models.wavefront_analysis import WavefrontAnalysis
+from src.models.spot_field import SpotField
 
+from src.models.wavefront_data import WavefrontData
+from src.models.wavefront_analysis import WavefrontAnalysis
 
 # ---------------------------------------------------------------------
 # Optical Case
@@ -122,6 +118,27 @@ class OpticalCase:
     case_directory: Path
     """
     Directory containing all Zemax reports associated with this case.
+    """
+
+    spot_file: Optional[Path] = None
+    """
+    Path to the Zemax Spot Diagram report.
+
+    Unlike PSF, MTF, and Wavefront reports, a Spot Diagram is generated once
+    per operating point and contains measurements for every field position.
+
+    Thermal
+    -------
+    dataset/
+        wavelength/
+            temperature/
+                spot.txt
+
+    Monte Carlo
+    -----------
+    dataset/
+        wavelength/
+            spot.txt
     """
 
     name: Optional[str] = None
@@ -231,12 +248,38 @@ class OpticalCase:
     Raw Point Spread Function data parsed from Zemax.
     """
 
-    #
-    # Future additions
-    #
-    # mtf_data: Optional[MTFData] = None
-    # rms_spot_data: Optional[RMSSpotData] = None
-    # wavefront_data: Optional[WavefrontData] = None
+    mtf_data: Optional[MTFData] = None
+    """
+    Raw optical-field Modulation Transfer Function (MTF) data parsed
+    from Zemax.
+    """
+
+    mtf_diffraction: Optional[MTFData] = None
+    """
+    Diffraction-limited Modulation Transfer Function (MTF) reference
+    corresponding to the same wavelength as mtf_data.
+    """
+
+    # -------------------------------------------------------------
+    # Spot Diagram
+    # -------------------------------------------------------------
+
+    spot_field: Optional[SpotField] = None
+    """
+    Spot Diagram measurements corresponding to this optical field.
+
+    Although Zemax exports one Spot Diagram report containing every field,
+    the processing pipeline assigns only the matching SpotField to each
+    OpticalCase.
+
+    This keeps the OpticalCase consistent with the PSF, MTF, and Wavefront
+    models, where each object represents one field of one operating point.
+    """
+
+    wavefront_data: Optional[WavefrontData] = None
+    """
+    Raw Wavefront Map data parsed from Zemax.
+    """
 
     # -------------------------------------------------------------
     # Derived Optical Analysis
@@ -247,9 +290,12 @@ class OpticalCase:
     Derived optical metrics computed from the PSF.
     """
 
-    #
-    # Future additions
-    #
-    # mtf_analysis: Optional[MTFAnalysis] = None
-    # rms_spot_analysis: Optional[RMSSpotAnalysis] = None
-    # wavefront_analysis: Optional[WavefrontAnalysis] = None
+    mtf_analysis: Optional[MTFAnalysis] = None
+    """
+    Derived optical metrics computed from the MTF.
+    """
+
+    wavefront_analysis: Optional[WavefrontAnalysis] = None
+    """
+    Derived optical metrics computed from the Wavefront Map.
+    """

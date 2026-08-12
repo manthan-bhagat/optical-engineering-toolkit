@@ -23,8 +23,8 @@ Project: Master's Thesis - Zemax Optical Analysis Toolkit
 # Local Imports
 # ---------------------------------------------------------------------
 
-from src.config import MTF_EVALUATION_FREQUENCY
 from src.models.optical_case import OpticalCase
+from src.config import MTF_ANALYSIS_FREQUENCIES
 
 
 # ---------------------------------------------------------------------
@@ -108,6 +108,15 @@ def _build_case_metadata(
         "Analysis Type":
             optical_case.analysis_type.value,
 
+        "Dataset":
+            optical_case.dataset,
+
+        "Wavelength (µm)":
+            optical_case.wavelength_um,
+
+        "Field":
+            optical_case.field_index,
+
         "Temperature (°C)":
             optical_case.temperature_c,
 
@@ -117,23 +126,60 @@ def _build_case_metadata(
 
 
 # ---------------------------------------------------------------------
-# RMS Spot Radius
+# Spot Diagram
 # ---------------------------------------------------------------------
 
 def _build_rms_spot(
     optical_case: OpticalCase,
 ) -> dict:
     """
-    Build RMS spot radius columns.
+    Build Spot Diagram columns.
     """
 
-    #
-    # Future implementation.
-    #
+    spot = optical_case.spot_field
+
+    if spot is None:
+
+        return {
+
+            "Spot Field X (deg)": None,
+            "Spot Field Y (deg)": None,
+
+            "Spot Image X (mm)": None,
+            "Spot Image Y (mm)": None,
+
+            "RMS Spot Radius (µm)": None,
+            "RMS Spot X Size (µm)": None,
+            "RMS Spot Y Size (µm)": None,
+
+            "Maximum Spot Radius (µm)": None,
+        }
 
     return {
 
-        "RMS Spot Radius (µm)": None,
+        "Spot Field X (deg)":
+            spot.field_x_deg,
+
+        "Spot Field Y (deg)":
+            spot.field_y_deg,
+
+        "Spot Image X (mm)":
+            spot.image_x_mm,
+
+        "Spot Image Y (mm)":
+            spot.image_y_mm,
+
+        "RMS Spot Radius (µm)":
+            spot.rms_radius_um,
+
+        "RMS Spot X Size (µm)":
+            spot.rms_x_um,
+
+        "RMS Spot Y Size (µm)":
+            spot.rms_y_um,
+
+        "Maximum Spot Radius (µm)":
+            spot.max_radius_um,
     }
 
 
@@ -230,23 +276,77 @@ def _build_mtf(
     optical_case: OpticalCase,
 ) -> dict:
     """
-    Build MTF columns.
+    Build MTF-related columns.
     """
 
-    #
-    # Future implementation.
-    #
+    mtf = optical_case.mtf_data
+    analysis = optical_case.mtf_analysis
+
+    frequency_1, frequency_2 = (
+        MTF_ANALYSIS_FREQUENCIES
+    )
+
+    if (
+        mtf is None
+        or analysis is None
+    ):
+
+        return {
+
+            #
+            # Spatial Frequency 1
+            #
+
+            f"Tangential MTF @ {frequency_1:.1f} cycles/mm":
+                None,
+
+            f"Sagittal MTF @ {frequency_1:.1f} cycles/mm":
+                None,
+
+            f"Mean MTF @ {frequency_1:.1f} cycles/mm":
+                None,
+
+            #
+            # Spatial Frequency 2
+            #
+
+            f"Tangential MTF @ {frequency_2:.1f} cycles/mm":
+                None,
+
+            f"Sagittal MTF @ {frequency_2:.1f} cycles/mm":
+                None,
+
+            f"Mean MTF @ {frequency_2:.1f} cycles/mm":
+                None,
+        }
 
     return {
 
-        f"Tangential MTF @ {MTF_EVALUATION_FREQUENCY:.0f} cycles/mm":
-            None,
+        #
+        # Spatial Frequency 1
+        #
 
-        f"Sagittal MTF @ {MTF_EVALUATION_FREQUENCY:.0f} cycles/mm":
-            None,
+        f"Tangential MTF @ {frequency_1:.1f} cycles/mm":
+            mtf.tangential_17_2,
 
-        f"Mean MTF @ {MTF_EVALUATION_FREQUENCY:.0f} cycles/mm":
-            None,
+        f"Sagittal MTF @ {frequency_1:.1f} cycles/mm":
+            mtf.sagittal_17_2,
+
+        f"Mean MTF @ {frequency_1:.1f} cycles/mm":
+            analysis.mean_17_2,
+
+        #
+        # Spatial Frequency 2
+        #
+
+        f"Tangential MTF @ {frequency_2:.1f} cycles/mm":
+            mtf.tangential_41_7,
+
+        f"Sagittal MTF @ {frequency_2:.1f} cycles/mm":
+            mtf.sagittal_41_7,
+
+        f"Mean MTF @ {frequency_2:.1f} cycles/mm":
+            analysis.mean_41_7,
     }
 
 
@@ -271,7 +371,6 @@ def _build_strehl(
             ),
     }
 
-
 # ---------------------------------------------------------------------
 # Wavefront Error
 # ---------------------------------------------------------------------
@@ -280,14 +379,62 @@ def _build_wavefront(
     optical_case: OpticalCase,
 ) -> dict:
     """
-    Build wavefront error columns.
+    Build wavefront-related columns.
     """
 
-    #
-    # Future implementation.
-    #
+    wavefront = optical_case.wavefront_analysis
+
+    if wavefront is None:
+
+        return {
+
+            "Wavefront PV (waves)": None,
+            "Wavefront RMS (waves)": None,
+
+            "Wavefront PV (nm)": None,
+            "Wavefront RMS (nm)": None,
+
+            "Minimum Wavefront (waves)": None,
+            "Maximum Wavefront (waves)": None,
+            "Mean Wavefront (waves)": None,
+            "Wavefront Standard Deviation (waves)": None,
+        }
 
     return {
 
-        "RMS WFE": None,
+        #
+        # Zemax wavefront error.
+        #
+
+        "Wavefront PV (waves)":
+            wavefront.peak_to_valley_waves,
+
+        "Wavefront RMS (waves)":
+            wavefront.rms_waves,
+
+        #
+        # Physical wavefront error.
+        #
+
+        "Wavefront PV (nm)":
+            wavefront.peak_to_valley_nm,
+
+        "Wavefront RMS (nm)":
+            wavefront.rms_nm,
+
+        #
+        # Wavefront statistics.
+        #
+
+        "Minimum Wavefront (waves)":
+            wavefront.minimum_waves,
+
+        "Maximum Wavefront (waves)":
+            wavefront.maximum_waves,
+
+        "Mean Wavefront (waves)":
+            wavefront.mean_waves,
+
+        "Wavefront Standard Deviation (waves)":
+            wavefront.standard_deviation_waves,
     }
