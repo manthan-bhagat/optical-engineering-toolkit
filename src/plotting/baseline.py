@@ -8,13 +8,19 @@ Purpose
 Generates wavelength-dependent engineering plots for the baseline
 optical design.
 
-Unlike the thermal analysis, the baseline analysis represents a single
-reference operating condition. For every registered metric, both
+The baseline analysis may contain multiple independently evaluated
+optical configurations. Each configuration is treated as a separate
+reference design and receives its own complete plot suite.
 
-- combined plots (all fields)
-- individual plots (one field)
+For every configuration and every registered metric, both
 
-are generated as a function of wavelength.
+- combined plots containing all fields
+- individual plots containing one field
+
+can be generated as a function of wavelength.
+
+Individual plots are currently retained in the implementation but are
+temporarily disabled in the configuration plot suite.
 
 No optical metric is hardcoded in this module.
 
@@ -37,7 +43,7 @@ from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
 
 from src.config import (
-    BASELINE_TEMPERATURE_C,
+    BASELINE_CONFIGURATION_NAMES,
 )
 
 from src.plotting.common import (
@@ -55,9 +61,72 @@ from src.plotting.paths import (
     get_baseline_field_plot_path,
 )
 
+
 # ---------------------------------------------------------------------
 # Internal Helpers
 # ---------------------------------------------------------------------
+
+
+def _get_configuration_name(
+    configuration: int,
+) -> str:
+    """
+    Return the human-readable filter name for a configuration.
+
+    Examples
+    --------
+    1 -> No Filter
+    2 -> BB1
+    7 -> BB6
+    8 -> NB1
+    10 -> NB3
+
+    Unknown configurations fall back to their numerical identifier.
+    """
+
+    return (
+        BASELINE_CONFIGURATION_NAMES.get(
+            configuration,
+            f"Configuration {configuration}",
+        )
+    )
+
+
+def _group_by_configuration(
+    cases: Iterable[OpticalCase],
+) -> dict[
+    int,
+    list[OpticalCase],
+]:
+    """
+    Group baseline cases by optical configuration.
+
+    Cases without configuration metadata are ignored.
+    """
+
+    grouped: dict[
+        int,
+        list[OpticalCase],
+    ] = defaultdict(list)
+
+    for optical_case in cases:
+
+        if (
+            optical_case.analysis_type
+            != AnalysisType.BASELINE
+        ):
+            continue
+
+        if optical_case.configuration is None:
+            continue
+
+        grouped[
+            optical_case.configuration
+        ].append(
+            optical_case
+        )
+
+    return grouped
 
 
 def _group_by_field(
@@ -78,9 +147,6 @@ def _group_by_field(
     ] = defaultdict(list)
 
     for optical_case in cases:
-
-        if optical_case.analysis_type != AnalysisType.BASELINE:
-            continue
 
         if (
             optical_case.field_index is None
@@ -109,23 +175,35 @@ def _group_by_field(
 
 
 def _generate_individual_plots(
+    configuration: int,
     cases: list[OpticalCase],
 ) -> None:
     """
     Generate one wavelength plot per field for every registered metric.
+
+    All plots belong to one baseline configuration.
+
+    This functionality is currently retained but not called by the
+    configuration plot suite.
     """
+
+    configuration_name = (
+        _get_configuration_name(
+            configuration
+        )
+    )
 
     grouped_fields = _group_by_field(
         cases
     )
 
-    for field_index in sorted(grouped_fields):
+    for field_index in sorted(
+        grouped_fields
+    ):
 
         field_cases = grouped_fields[
             field_index
         ]
-
-        representative_case = field_cases[0]
 
         for metric in BASELINE_PLOT_METRICS:
 
@@ -142,6 +220,11 @@ def _generate_individual_plots(
                     )
 
                 except AttributeError:
+
+                    continue
+
+                if value is None:
+
                     continue
 
                 wavelengths.append(
@@ -153,12 +236,12 @@ def _generate_individual_plots(
                 )
 
             if not values:
+
                 continue
 
             title = (
                 f"{metric.title}\n"
-                f"Baseline Temperature = "
-                f"{BASELINE_TEMPERATURE_C:.0f} °C\n"
+                f"{configuration_name} | "
                 f"Field {field_index}"
             )
 
@@ -168,9 +251,12 @@ def _generate_individual_plots(
                 xlabel="Wavelength (nm)",
                 ylabel=metric.ylabel,
                 title=title,
-                output_file=get_baseline_field_plot_path(
-                    field_index,
-                    metric.filename,
+                output_file=(
+                    get_baseline_field_plot_path(
+                        configuration,
+                        field_index,
+                        metric.filename,
+                    )
                 ),
             )
 
@@ -181,13 +267,22 @@ def _generate_individual_plots(
 
 
 def _generate_combined_plots(
+    configuration: int,
     cases: list[OpticalCase],
 ) -> None:
     """
     Generate one combined wavelength plot for every registered metric.
 
     Each combined plot contains one curve per field.
+
+    All curves belong to one baseline configuration.
     """
+
+    configuration_name = (
+        _get_configuration_name(
+            configuration
+        )
+    )
 
     grouped_fields = _group_by_field(
         cases
@@ -199,7 +294,9 @@ def _generate_combined_plots(
             dict[str, object]
         ] = []
 
-        for field_index in sorted(grouped_fields):
+        for field_index in sorted(
+            grouped_fields
+        ):
 
             field_cases = grouped_fields[
                 field_index
@@ -218,6 +315,11 @@ def _generate_combined_plots(
                     )
 
                 except AttributeError:
+
+                    continue
+
+                if value is None:
+
                     continue
 
                 wavelengths.append(
@@ -229,26 +331,32 @@ def _generate_combined_plots(
                 )
 
             if not values:
+
                 continue
 
             series.append(
                 {
-                    "field": field_index,
-                    "label": (
-                        f"Field {field_index}"
-                    ),
-                    "x": wavelengths,
-                    "y": values,
+                    "field":
+                        field_index,
+
+                    "label":
+                        f"Field {field_index}",
+
+                    "x":
+                        wavelengths,
+
+                    "y":
+                        values,
                 }
             )
 
         if not series:
+
             continue
 
         title = (
             f"{metric.title}\n"
-            f"Baseline Temperature = "
-            f"{BASELINE_TEMPERATURE_C:.0f} °C"
+            f"{configuration_name}"
         )
 
         plot_multi_metric(
@@ -256,11 +364,45 @@ def _generate_combined_plots(
             xlabel="Wavelength (nm)",
             ylabel=metric.ylabel,
             title=title,
-            output_file=get_baseline_combined_plot_path(
-                metric.filename,
+            output_file=(
+                get_baseline_combined_plot_path(
+                    configuration,
+                    metric.filename,
+                )
             ),
             legend_title="Field",
         )
+
+
+# ---------------------------------------------------------------------
+# Configuration Plot Suite
+# ---------------------------------------------------------------------
+
+
+def _generate_configuration_plots(
+    configuration: int,
+    cases: list[OpticalCase],
+) -> None:
+    """
+    Generate the complete plot suite for one baseline configuration.
+
+    Individual field plots are currently disabled but their generation
+    routine remains available for future use.
+    """
+
+    _generate_combined_plots(
+        configuration,
+        cases,
+    )
+
+    # -------------------------------------------------------------
+    # Individual plots temporarily disabled
+    # -------------------------------------------------------------
+
+    # _generate_individual_plots(
+    #     configuration,
+    #     cases,
+    # )
 
 
 # ---------------------------------------------------------------------
@@ -270,20 +412,15 @@ def _generate_combined_plots(
 
 def generate_baseline_plots(
     cases: Iterable[OpticalCase],
+    configuration: int,
 ) -> None:
     """
-    Generate the complete baseline plot suite.
+    Generate the complete plot suite for one baseline configuration.
 
-    For the reference baseline optical configuration, wavelength-
-    dependent engineering plots are generated.
+    For every registered metric, a combined plot containing every field
+    is generated as a function of wavelength.
 
-    For every registered metric, this function generates
-
-    - one combined plot containing every field
-    - one individual plot for each field
-
-    The generated figures are written to the baseline output directory
-    hierarchy managed by plotting.paths.
+    Individual field plots are currently disabled.
     """
 
     baseline_cases = [
@@ -292,17 +429,18 @@ def generate_baseline_plots(
 
         for case in cases
 
-        if case.analysis_type == AnalysisType.BASELINE
+        if (
+            case.analysis_type
+            == AnalysisType.BASELINE
+        )
 
     ]
 
     if not baseline_cases:
+
         return
 
-    _generate_combined_plots(
-        baseline_cases,
-    )
-
-    _generate_individual_plots(
+    _generate_configuration_plots(
+        configuration,
         baseline_cases,
     )

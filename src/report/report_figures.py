@@ -132,6 +132,7 @@ def _build_reference_series(
         return None
 
     return get_reference_series(
+        analysis_type,
         output_name,
         summary["Wavelength (µm)"],
     )
@@ -261,6 +262,7 @@ def _export_metric_figures(
     if analysis_type != AnalysisType.BASELINE:
         engineering_reference_series = (
             get_engineering_reference_series(
+                analysis_type,
                 output_name,
                 summary[x_column],
             )
@@ -356,6 +358,7 @@ def _export_metric_figures(
 
     engineering_reference_series = (
         get_engineering_reference_series(
+            analysis_type,
             output_name,
             engineering_series[0]["x"],
         )
@@ -384,13 +387,11 @@ def _export_metric_figures(
 # Public API
 # ---------------------------------------------------------------------
 
+
 def export_report_figures(
     analysis_type: AnalysisType,
     summary,
 ) -> None:
-    """
-    Export every publication-quality report figure.
-    """
 
     x_column = _get_x_column(
         analysis_type,
@@ -401,49 +402,96 @@ def export_report_figures(
     )
 
     # -------------------------------------------------------------
-    # Thermal analyses are exported separately for every dataset.
+    # Baseline
+    #
+    # Plot all configurations together, excluding Configuration 1.
     # -------------------------------------------------------------
 
-    if analysis_type == AnalysisType.THERMAL:
+    if analysis_type == AnalysisType.BASELINE:
 
-        datasets = sorted(
-            summary["Dataset"].unique()
+        configuration = (
+            summary["Case ID"]
+            .str.extract(
+                r"_C(\d+)_",
+                expand=False,
+            )
+            .astype(int)
         )
+
+        plot_summary = summary[
+            configuration != 1
+        ].copy()
+
+        group_values = [None]
+
+        group_column = None
+
+    # -------------------------------------------------------------
+    # Thermal
+    # -------------------------------------------------------------
+
+    elif analysis_type == AnalysisType.THERMAL:
+
+        group_column = "Dataset"
+
+        group_values = sorted(
+            summary[group_column].unique()
+        )
+
+    # -------------------------------------------------------------
+    # Monte Carlo
+    # -------------------------------------------------------------
+
+    elif analysis_type == AnalysisType.MONTE_CARLO:
+
+        group_column = None
+
+        group_values = [None]
 
     else:
 
-        datasets = [None]
+        raise ValueError(
+            f"Unsupported analysis type: {analysis_type}"
+        )
 
     # -------------------------------------------------------------
     # Export figures.
     # -------------------------------------------------------------
 
-    for dataset in datasets:
+    for group_value in group_values:
 
-        if dataset is None:
+        if group_value is None:
 
-            plot_summary = summary
+            if analysis_type == AnalysisType.BASELINE:
+
+                current_summary = plot_summary
+
+            else:
+
+                current_summary = summary
 
             suffix = ""
 
         else:
 
-            plot_summary = (
+            current_summary = (
                 summary[
-                    summary["Dataset"] == dataset
+                    summary[group_column]
+                    == group_value
                 ]
                 .copy()
             )
 
             suffix = (
                 "_"
-                + dataset.lower()
+                + str(group_value).lower()
             )
 
         for output_name, metadata in REPORT_FIGURES.items():
+
             _export_metric_figures(
                 analysis_type=analysis_type,
-                summary=plot_summary,
+                summary=current_summary,
                 output_name=output_name,
                 metric_column=metadata["column"],
                 title=metadata["title"],

@@ -54,6 +54,9 @@ from src.config import (
     PSF_NOMINAL_THERMAL_LIMIT_UM,
 )
 
+from src.models.analysis_type import (
+    AnalysisType,
+)
 # ---------------------------------------------------------------------
 # Airy Pattern
 # ---------------------------------------------------------------------
@@ -166,6 +169,30 @@ def diffraction_ee50(
         * FOCAL_RATIO
     )
 
+def airy_energy_reference(
+    wavelength_um,
+):
+    """
+    Ideal diffraction-limited fraction of energy enclosed within
+    the Airy disk.
+
+    The Airy disk is defined as the region from the PSF center to
+    the first diffraction minimum.
+
+    For an unobstructed circular aperture, approximately 83.8% of
+    the total energy is enclosed within this radius.
+    """
+
+    wavelength_um = np.asarray(
+        wavelength_um,
+        dtype=float,
+    )
+
+    return np.full_like(
+        wavelength_um,
+        0.838,
+        dtype=float,
+    )
 
 def diffraction_ee80(
     wavelength_um,
@@ -476,14 +503,14 @@ def mtf42_criterion(
 # ---------------------------------------------------------------------
 
 
-def psf_reference_series(
+def baseline_psf_reference_series(
     wavelength_um,
 ) -> list[dict]:
     """
-    Reference curves for Equivalent PSF FWHM figures.
+    Reference curves for baseline PSF FWHM figures.
 
-    Includes theoretical, system-level, and analysis-specific
-    engineering acceptance references.
+    Includes the fundamental diffraction limit and the
+    OTA image-quality allocation.
     """
 
     return [
@@ -504,13 +531,24 @@ def psf_reference_series(
             ),
         },
 
-        {
-            "label": "Monte Carlo Limit",
-            "x": wavelength_um,
-            "y": nominal_monte_carlo_psf_limit(
-                wavelength_um,
-            ),
-        },
+    ]
+
+
+def thermal_psf_reference_series(
+    wavelength_um,
+) -> list[dict]:
+    """
+    Reference curves for thermal PSF FWHM figures.
+
+    Includes the baseline optical references and the
+    nominal plus thermal acceptance limit.
+    """
+
+    return [
+
+        *baseline_psf_reference_series(
+            wavelength_um,
+        ),
 
         {
             "label": "Thermal Limit",
@@ -522,6 +560,51 @@ def psf_reference_series(
 
     ]
 
+
+def monte_carlo_psf_reference_series(
+    wavelength_um,
+) -> list[dict]:
+    """
+    Reference curves for Monte Carlo PSF FWHM figures.
+
+    Includes the baseline optical references and the
+    nominal plus Monte Carlo acceptance limit.
+    """
+
+    return [
+
+        *baseline_psf_reference_series(
+            wavelength_um,
+        ),
+
+        {
+            "label": "Monte Carlo Limit",
+            "x": wavelength_um,
+            "y": nominal_monte_carlo_psf_limit(
+                wavelength_um,
+            ),
+        },
+
+    ]
+
+def airy_energy_reference_series(
+    wavelength_um,
+) -> list[dict]:
+    """
+    Reference curve for energy enclosed within the Airy disk.
+    """
+
+    return [
+
+        {
+            "label": "Ideal Airy Pattern",
+            "x": wavelength_um,
+            "y": airy_energy_reference(
+                wavelength_um,
+            ),
+        },
+
+    ]
 
 def ee80_reference_series(
     wavelength_um,
@@ -542,6 +625,24 @@ def ee80_reference_series(
 
     ]
 
+def ee90_reference_series(
+    wavelength_um,
+) -> list[dict]:
+    """
+    Reference curves for EE90 figures.
+    """
+
+    return [
+
+        {
+            "label": "Diffraction Limit",
+            "x": wavelength_um,
+            "y": diffraction_ee90(
+                wavelength_um,
+            ),
+        },
+
+    ]
 
 def mtf17_reference_series(
     wavelength_um,
@@ -657,9 +758,11 @@ REFERENCE_SERIES = {
 
     "rms_spot": rms_spot_reference_series,
 
-    "psf": psf_reference_series,
-
     "ee80": ee80_reference_series,
+
+    "ee90": ee90_reference_series,
+
+    "airy_energy": airy_energy_reference_series,
 
     "mtf17": mtf17_reference_series,
 
@@ -672,26 +775,52 @@ REFERENCE_SERIES = {
 }
 
 
+PSF_REFERENCE_SERIES = {
+
+    "baseline": baseline_psf_reference_series,
+
+    "thermal": thermal_psf_reference_series,
+
+    "monte-carlo": monte_carlo_psf_reference_series,
+
+}
+
+
 def get_reference_series(
+    analysis_type: AnalysisType,
     figure_name: str,
     wavelength_um,
 ) -> list[dict]:
     """
     Return reference curves for a report figure.
 
-    Parameters
-    ----------
-    figure_name
-        Figure identifier from REPORT_FIGURES.
-
-    wavelength_um
-        Wavelength array corresponding to the plotted data.
-
-    Returns
-    -------
-    list[dict]
-        Plot series compatible with figures.save_figure().
+    Reference curves may depend on both the figure metric and
+    analysis type.
     """
+
+    if figure_name == "psf":
+
+        if analysis_type == AnalysisType.BASELINE:
+
+            builder = baseline_psf_reference_series
+
+        elif analysis_type == AnalysisType.THERMAL:
+
+            builder = thermal_psf_reference_series
+
+        elif analysis_type == AnalysisType.MONTE_CARLO:
+
+            builder = monte_carlo_psf_reference_series
+
+        else:
+
+            raise ValueError(
+                f"Unsupported analysis type: {analysis_type}"
+            )
+
+        return builder(
+            wavelength_um,
+        )
 
     builder = REFERENCE_SERIES.get(
         figure_name,
@@ -705,34 +834,20 @@ def get_reference_series(
         wavelength_um,
     )
 
-
 def get_engineering_reference_series(
+    analysis_type: AnalysisType,
     figure_name: str,
     x_values,
 ) -> list[dict]:
     """
     Return engineering reference curves for validation figures.
 
-    Unlike baseline figures, engineering validation figures are plotted
-    against temperature or representative trial at a single fixed
-    wavelength. The engineering reference therefore becomes a
-    horizontal line evaluated at the configured engineering wavelength.
-
-    Parameters
-    ----------
-    figure_name
-        Figure identifier from REPORT_FIGURES.
-
-    x_values
-        X coordinates used for plotting.
-
-    Returns
-    -------
-    list[dict]
-        Reference series compatible with figures.save_figure().
+    References are evaluated at the configured engineering wavelength
+    and represented as horizontal lines across the plotted X-axis.
     """
 
     reference_series = get_reference_series(
+        analysis_type,
         figure_name,
         np.asarray(
             [ENGINEERING_WAVELENGTH_UM],

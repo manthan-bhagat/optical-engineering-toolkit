@@ -111,6 +111,9 @@ def _build_case_metadata(
         "Dataset":
             optical_case.dataset,
 
+        "Configuration":
+            optical_case.configuration,
+
         "Wavelength (µm)":
             optical_case.wavelength_um,
 
@@ -214,6 +217,10 @@ def _build_psf(
             "EE80 Radius (µm)": None,
             "EE90 Radius (µm)": None,
             "EE95 Radius (µm)": None,
+
+            "Airy Radius (µm)": None,
+            "Energy Within Airy Radius": None,
+            "PSF Wing Fraction": None,
         }
 
     return {
@@ -265,6 +272,19 @@ def _build_psf(
 
         "EE95 Radius (µm)":
             psf.ee95_radius_um,
+
+        #
+        # Airy reference and PSF wings.
+        #
+
+        "Airy Radius (µm)":
+            psf.airy_radius_um,
+
+        "Energy Within Airy Radius":
+            psf.energy_within_airy_radius,
+
+        "PSF Wing Fraction":
+            psf.psf_wing_fraction,
     }
 
 

@@ -273,3 +273,68 @@ class PSFAnalysis:
     Since Zemax exports normalized PSFs, this value is typically close
     to 1.0 but is preserved for completeness.
     """
+
+    # -------------------------------------------------------------
+    # Airy Reference and PSF Wings
+    # -------------------------------------------------------------
+
+    airy_radius_um: float
+    """
+    Diffraction-defined Airy reference radius.
+
+    Defined as the radius to the first minimum of the ideal Airy
+    diffraction pattern:
+
+        r = 1.22 λ F#
+
+    Units
+    -----
+    Micrometers (µm)
+
+    Notes
+    -----
+    The radius is evaluated at the wavelength associated with the
+    OpticalCase and provides a wavelength-scaled reference boundary
+    for evaluating PSF energy concentration and redistribution into
+    the PSF wings.
+    """
+
+    energy_within_airy_radius: float
+    """
+    Fraction of the total PSF energy enclosed within the Airy
+    reference radius.
+
+    Dimensionless.
+
+    Notes
+    -----
+    The enclosed energy is computed about the intensity-weighted PSF
+    centroid using the same radial convention as the encircled-energy
+    calculations.
+
+    A value of 1.0 would indicate that all sampled PSF energy lies
+    within the Airy reference radius.
+    """
+
+    psf_wing_fraction: float
+    """
+    Fraction of the total PSF energy lying outside the Airy reference
+    radius.
+
+    Dimensionless.
+
+    Defined as
+
+        PSF Wing Fraction
+        =
+        1 - Energy Within Airy Radius
+
+    Notes
+    -----
+    This metric quantifies the fraction of sampled PSF energy
+    redistributed outside the diffraction-defined Airy reference
+    radius.
+
+    A larger value indicates greater energy redistribution into the
+    PSF wings.
+    """

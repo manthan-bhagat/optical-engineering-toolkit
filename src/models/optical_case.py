@@ -170,10 +170,31 @@ class OpticalCase:
     """
 
     # -------------------------------------------------------------
+    # Configuration Metadata
+    # -------------------------------------------------------------
+
+    configuration: Optional[int] = None
+    """
+    Zemax multi-configuration index associated with this analysis case.
+
+    Used when a single optical design contains multiple physical or
+    optical configurations, such as filter configurations.
+
+    Examples
+    --------
+    1
+
+    6
+
+    9
+    """
+
+    # -------------------------------------------------------------
     # Optical Coordinates
     # -------------------------------------------------------------
 
     wavelength_um: Optional[float] = None
+
     """
     Analysis wavelength.
 

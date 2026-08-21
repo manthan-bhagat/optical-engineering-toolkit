@@ -11,6 +11,12 @@ Unlike metric tables, report tables are generated directly from the
 canonical summary so that all statistics are computed from the original
 measurements rather than from previously aggregated values.
 
+Baseline analyses generate configuration- and wavelength-dependent
+statistics across all field positions.
+
+Thermal and Monte Carlo analyses generate statistics across the
+corresponding canonical analysis dimensions.
+
 Each report table is exported as
 
 - CSV
@@ -67,6 +73,7 @@ from src.report.statistics import (
     calculate_summary_statistics,
 )
 
+
 # ---------------------------------------------------------------------
 # Internal Helpers
 # ---------------------------------------------------------------------
@@ -79,20 +86,40 @@ def _generate_baseline_report_table(
     """
     Generate a baseline report table.
 
-    The baseline report summarizes the optical performance at each
-    wavelength by computing statistics across every field.
+    The baseline report summarizes optical performance for every
+    configuration and wavelength by computing statistics across every
+    field position.
+
+    Statistics are calculated independently for each
+
+    - configuration
+    - wavelength
+
+    and therefore configurations are never statistically combined.
     """
+
+    group_columns = [
+
+        column
+
+        for column in (
+
+            "Configuration",
+            "Wavelength (µm)",
+
+        )
+
+        if column in summary.columns
+    ]
 
     return (
         calculate_summary_statistics(
             dataframe=summary,
-            group_columns=[
-                "Wavelength (µm)",
-            ],
+            group_columns=group_columns,
             metric_column=metric_column,
         )
         .sort_values(
-            "Wavelength (µm)",
+            group_columns,
         )
         .reset_index(
             drop=True,

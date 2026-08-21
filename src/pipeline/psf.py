@@ -36,12 +36,10 @@ Project: Master's Thesis - Zemax Optical Analysis Toolkit
 # ---------------------------------------------------------------------
 
 from src.analysis.psf import analyze_psf
-
 from src.config import PSF_REPORT
-
 from src.models.optical_case import OpticalCase
-
 from src.parsers.psf import PSFParser
+
 
 # ---------------------------------------------------------------------
 # Public API
@@ -64,6 +62,10 @@ def process_psf(
     returns without modification.
     """
 
+    # -------------------------------------------------------------
+    # Locate PSF report.
+    # -------------------------------------------------------------
+
     psf_file = (
         optical_case.case_directory
         / PSF_REPORT
@@ -85,7 +87,8 @@ def process_psf(
     # -------------------------------------------------------------
 
     psf_analysis = analyze_psf(
-        psf_data
+        data=psf_data,
+        wavelength_um=optical_case.wavelength_um,
     )
 
     # -------------------------------------------------------------

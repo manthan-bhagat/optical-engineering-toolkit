@@ -39,8 +39,8 @@ OUTPUT_DIRECTORY = PROJECT_ROOT / "output"
 THERMAL_INPUT_DIRECTORY = INPUT_DIRECTORY / "thermal"
 
 BASELINE_INPUT_DIRECTORY = (
-    THERMAL_INPUT_DIRECTORY
-    / "nominal"
+    INPUT_DIRECTORY
+    / "baseline"
 )
 
 MONTE_CARLO_INPUT_DIRECTORY = INPUT_DIRECTORY / "monte-carlo"
@@ -530,6 +530,14 @@ RESULT_COLUMNS = (
     "EE95 Radius (µm)",
 
     # -------------------------------------------------------------
+    # Airy Reference and PSF Wings
+    # -------------------------------------------------------------
+
+    "Airy Radius (µm)",
+    "Energy Within Airy Radius",
+    "PSF Wing Fraction",
+
+    # -------------------------------------------------------------
     # MTF
     # -------------------------------------------------------------
 
@@ -687,6 +695,30 @@ REPORT_FIGURES = {
 
     },
 
+    "ee90": {
+
+        "column": "EE90 Radius (µm)",
+
+        "title": "90% Encircled Energy (EE90) Radius",
+
+        "ylabel": "EE90 Radius (µm)",
+
+        "legend": "Field",
+
+    },
+
+    "airy_energy": {
+
+        "column": "Energy Within Airy Radius",
+
+        "title": "Fraction of PSF Energy Within Airy Disk",
+
+        "ylabel": "Encircled Energy Fraction",
+
+        "legend": "Field",
+
+    },
+
     "mtf17": {
 
         "column": f"Mean MTF @ {MTF_ANALYSIS_FREQUENCIES[0]:.1f} cycles/mm",
@@ -820,7 +852,7 @@ REPORT_MEAN_LINE_WIDTH = 2.5
 Line width used to emphasize mean or representative curves.
 """
 
-REPORT_MARKER = "o"
+REPORT_MARKER = ""
 """
 Default marker style for report figures.
 """
@@ -956,3 +988,18 @@ None        -> Process all thermal datasets.
 "survival"  -> Process only survival.
 """
 
+BASELINE_CONFIGURATION_NAMES: dict[int, str] = {
+
+    1: "No Filter",
+
+    2: "BB1",
+    3: "BB2",
+    4: "BB3",
+    5: "BB4",
+    6: "BB5",
+    7: "BB6",
+
+    8: "NB1",
+    9: "NB2",
+    10: "NB3",
+}

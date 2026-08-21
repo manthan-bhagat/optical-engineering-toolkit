@@ -448,126 +448,197 @@ def get_baseline_directory() -> Path:
     )
 
 
-def get_baseline_csv_path() -> Path:
+def get_baseline_configuration_directory(
+    configuration: int,
+) -> Path:
     """
-    Return the baseline CSV export path.
+    Return the output directory for one baseline configuration.
 
     Example
     -------
     output/
         baseline/
-            results.csv
+            configuration_01/
     """
 
     return (
         get_baseline_directory()
+        / f"configuration_{configuration:02d}"
+    )
+
+
+# ---------------------------------------------------------------------
+# Baseline Export Files
+# ---------------------------------------------------------------------
+
+
+def get_baseline_csv_path(
+    configuration: int,
+) -> Path:
+    """
+    Return the CSV export path for one baseline configuration.
+
+    Example
+    -------
+    output/
+        baseline/
+            configuration_01/
+                results.csv
+    """
+
+    return (
+        get_baseline_configuration_directory(
+            configuration
+        )
         / "results.csv"
     )
 
 
-def get_baseline_excel_path() -> Path:
+def get_baseline_excel_path(
+    configuration: int,
+) -> Path:
     """
-    Return the baseline Excel export path.
+    Return the Excel export path for one baseline configuration.
 
     Example
     -------
     output/
         baseline/
-            results.xlsx
+            configuration_01/
+                results.xlsx
     """
 
     return (
-        get_baseline_directory()
+        get_baseline_configuration_directory(
+            configuration
+        )
         / "results.xlsx"
     )
 
 
-def get_baseline_figures_directory() -> Path:
+# ---------------------------------------------------------------------
+# Baseline Figure Directories
+# ---------------------------------------------------------------------
+
+
+def get_baseline_figures_directory(
+    configuration: int,
+) -> Path:
     """
-    Return the baseline figures directory.
+    Return the figures directory for one baseline configuration.
 
     Example
     -------
     output/
         baseline/
-            figures/
+            configuration_01/
+                figures/
     """
 
     return (
-        get_baseline_directory()
+        get_baseline_configuration_directory(
+            configuration
+        )
         / "figures"
     )
 
 
-def get_baseline_combined_figures_directory() -> Path:
+def get_baseline_combined_figures_directory(
+    configuration: int,
+) -> Path:
     """
-    Return the baseline combined figures directory.
+    Return the combined figures directory for one baseline
+    configuration.
     """
 
     return (
-        get_baseline_figures_directory()
+        get_baseline_figures_directory(
+            configuration
+        )
         / "combined"
     )
 
 
-def get_baseline_individual_figures_directory() -> Path:
+def get_baseline_individual_figures_directory(
+    configuration: int,
+) -> Path:
     """
-    Return the baseline individual figures directory.
+    Return the individual figures directory for one baseline
+    configuration.
     """
 
     return (
-        get_baseline_figures_directory()
+        get_baseline_figures_directory(
+            configuration
+        )
         / "individual"
     )
 
 
 def get_baseline_field_directory(
+    configuration: int,
     field_index: int,
 ) -> Path:
     """
-    Return the baseline directory for one field.
+    Return the directory for one field within one baseline
+    configuration.
 
     Example
     -------
     output/
         baseline/
-            figures/
-                individual/
-                    field_01/
+            configuration_01/
+                figures/
+                    individual/
+                        field_01/
     """
 
     return (
-        get_baseline_individual_figures_directory()
+        get_baseline_individual_figures_directory(
+            configuration
+        )
         / _format_field(
             field_index
         )
     )
 
 
+# ---------------------------------------------------------------------
+# Baseline Figure Files
+# ---------------------------------------------------------------------
+
+
 def get_baseline_combined_plot_path(
+    configuration: int,
     filename: str,
 ) -> Path:
     """
-    Return the path to one baseline combined plot.
+    Return the path to one combined plot for one baseline
+    configuration.
     """
 
     return (
-        get_baseline_combined_figures_directory()
+        get_baseline_combined_figures_directory(
+            configuration
+        )
         / filename
     )
 
 
 def get_baseline_field_plot_path(
+    configuration: int,
     field_index: int,
     filename: str,
 ) -> Path:
     """
-    Return the path to one baseline individual field plot.
+    Return the path to one individual field plot for one baseline
+    configuration.
     """
 
     return (
         get_baseline_field_directory(
-            field_index
+            configuration,
+            field_index,
         )
         / filename
     )

@@ -5,27 +5,25 @@ Baseline case collector.
 
 Purpose
 -------
-Discovers the baseline optical analysis operating points and constructs
-one OpticalCase per field.
-
-The baseline analysis reuses the nominal thermal Zemax exports at the
-reference temperature and evaluates baseline optical performance as a
-function of wavelength.
+Discovers baseline optical analysis operating points and constructs
+one OpticalCase per configuration, wavelength, and field.
 
 Directory Layout
 ----------------
 
-thermal/
-    nominal/
-        wavelength/
-            temperature/
-                spot.txt
-                field_1.000000/
-                    psf.txt
-                    mtf.txt
-                    wavefront.txt
-                field_2.000000/
-                ...
+baseline/
+    configuration_1.000000/
+        0.400000/
+            spot.txt
+            field_1.000000/
+                psf.txt
+                mtf.txt
+                wavefront.txt
+            field_2.000000/
+            ...
+
+    configuration_2.000000/
+        ...
 """
 
 # ---------------------------------------------------------------------
@@ -40,12 +38,12 @@ from pathlib import Path
 
 from src.config import (
     BASELINE_CASE_PREFIX,
-    BASELINE_TEMPERATURE_C,
     SPOT_REPORT,
 )
 
 from src.models.analysis_type import AnalysisType
 from src.models.optical_case import OpticalCase
+
 
 # ---------------------------------------------------------------------
 # Public API
@@ -56,60 +54,102 @@ def load_baseline_cases(
 ) -> list[OpticalCase]:
     """
     Load every baseline OpticalCase.
+
+    One OpticalCase is created for every unique combination of
+
+        Configuration
+        Wavelength
+        Field
     """
 
     cases: list[OpticalCase] = []
 
     # -------------------------------------------------------------
-    # Wavelength
+    # Configuration
     # -------------------------------------------------------------
 
-    for wavelength_directory in sorted(
-        path
-        for path in baseline_directory.iterdir()
-        if path.is_dir()
+    configuration_directories = sorted(
+        (
+            path
+            for path in baseline_directory.iterdir()
+            if path.is_dir()
+            and path.name.lower().startswith(
+                "configuration_"
+            )
+        ),
+        key=lambda path: int(
+            float(
+                path.name
+                .lower()
+                .removeprefix(
+                    "configuration_"
+                )
+            )
+        ),
+    )
+
+    for configuration_directory in (
+        configuration_directories
     ):
 
-        wavelength = float(
-            wavelength_directory.name
+        configuration = int(
+            float(
+                configuration_directory.name
+                .lower()
+                .removeprefix(
+                    "configuration_"
+                )
+            )
         )
 
-        #
-        # Allow either 200 or 0.200 folder names.
-        #
-        if wavelength >= 10:
-            wavelength /= 1000.0
-
-        wavelength_um = wavelength
-
         # ---------------------------------------------------------
-        # Temperature
+        # Wavelength
         # ---------------------------------------------------------
 
-        for temperature_directory in sorted(
-            path
-            for path in wavelength_directory.iterdir()
-            if path.is_dir()
+        wavelength_directories = sorted(
+            (
+                path
+                for path in configuration_directory.iterdir()
+                if path.is_dir()
+            ),
+            key=lambda path: float(
+                path.name
+            ),
+        )
+
+        for wavelength_directory in (
+            wavelength_directories
         ):
 
-            temperature_c = float(
-                temperature_directory.name
+            wavelength = float(
+                wavelength_directory.name
             )
 
             #
-            # Baseline uses only the reference temperature.
+            # Support either nanometre or micrometre
+            # directory names.
             #
-            if abs(
-                temperature_c
-                - BASELINE_TEMPERATURE_C
-            ) > 1e-6:
-                continue
+            # Examples:
+            #
+            # 200
+            # 400
+            #
+            # or
+            #
+            # 0.200000
+            # 0.400000
+            #
+            if wavelength >= 10:
+                wavelength /= 1000.0
 
-            #
+            wavelength_um = wavelength
+
+            # -----------------------------------------------------
             # Shared Spot Diagram
-            #
+            # -----------------------------------------------------
+
             spot_file = (
-                temperature_directory
+                wavelength_directory
                 / SPOT_REPORT
             )
 
@@ -117,70 +157,97 @@ def load_baseline_cases(
             # Fields
             # -----------------------------------------------------
 
-            for field_directory in sorted(
-                path
-                for path in temperature_directory.iterdir()
-                if path.is_dir()
+            field_directories = sorted(
+                (
+                    path
+                    for path in wavelength_directory.iterdir()
+                    if path.is_dir()
+                    and path.name
+                    .lower()
+                    .startswith(
+                        "field_"
+                    )
+                ),
+                key=lambda path: int(
+                    float(
+                        path.name
+                        .lower()
+                        .removeprefix(
+                            "field_"
+                        )
+                    )
+                ),
+            )
+
+            for field_directory in (
+                field_directories
             ):
 
-                field_name = field_directory.name
-
-                if not field_name.lower().startswith(
-                    "field_"
-                ):
-                    continue
-
-                #
-                # Supports
-                #
-                # field_1
-                # field_1.0
-                # field_1.000000
-                #
                 field_index = int(
                     float(
-                        field_name.removeprefix(
+                        field_directory.name
+                        .lower()
+                        .removeprefix(
                             "field_"
                         )
                     )
                 )
 
+                # -------------------------------------------------
+                # Construct Optical Case
+                # -------------------------------------------------
+
                 cases.append(
 
                     OpticalCase(
 
+                        # -----------------------------------------
+                        # Identity
+                        # -----------------------------------------
+
                         case_id=(
                             f"{BASELINE_CASE_PREFIX}"
+                            f"_C{configuration:02d}"
                             f"_W{wavelength_um * 1000:.0f}"
                             f"_F{field_index:02d}"
                         ),
 
                         name=(
                             f"Baseline | "
-                            f"{wavelength_um:.3f} µm | "
+                            f"Configuration {configuration} | "
+                            f"{wavelength_um:.6f} µm | "
                             f"Field {field_index}"
                         ),
 
-                        analysis_type=AnalysisType.BASELINE,
+                        analysis_type=(
+                            AnalysisType.BASELINE
+                        ),
 
-                        case_directory=field_directory,
+                        # -----------------------------------------
+                        # File Locations
+                        # -----------------------------------------
 
-                        #
-                        # Shared Spot Diagram
-                        #
+                        case_directory=(
+                            field_directory
+                        ),
+
                         spot_file=(
                             spot_file
                             if spot_file.exists()
                             else None
                         ),
 
+                        # -----------------------------------------
+                        # Dataset Metadata
+                        # -----------------------------------------
+
                         dataset="baseline",
+
+                        configuration=configuration,
 
                         wavelength_um=wavelength_um,
 
                         field_index=field_index,
-
-                        temperature_c=temperature_c,
                     )
                 )
 

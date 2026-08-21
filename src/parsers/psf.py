@@ -335,14 +335,10 @@ class PSFParser(BaseParser):
             values = lines[row_index].split()
 
             if len(values) != width:
-                psf = np.asarray(psf_matrix, dtype=np.float64)
-                if psf.shape != (height, width):
-                    raise ValueError(
-                        f"Expected PSF matrix shape ({height}, {width}), "
-                        f"found {psf.shape}."
-                    )
-
-                return psf
+                raise ValueError(
+                    f"Expected {width} values in PSF row "
+                    f"{row_index + 1}, found {len(values)}."
+                )
 
             try:
 
@@ -361,7 +357,15 @@ class PSFParser(BaseParser):
         # Convert to a NumPy array.
         # -------------------------------------------------------------
 
-        return np.asarray(
+        psf = np.asarray(
             psf_matrix,
             dtype=np.float64,
         )
+
+        if psf.shape != (height, width):
+            raise ValueError(
+                f"Expected PSF matrix shape ({height}, {width}), "
+                f"found {psf.shape}."
+            )
+
+        return psf

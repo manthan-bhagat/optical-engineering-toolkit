@@ -356,24 +356,37 @@ def get_report_figure_path(
 
     Examples
     --------
-    Summary
+    Summary figure
 
         figures/
-            psf_summary.png
+            summary/
+                psf.png
 
-    Field-averaged
+    Baseline field figure
+
+        figures/
+            field/
+                psf.png
+
+    Field-averaged figure
 
         figures/
             field_averaged/
                 mean/
                     psf.png
 
-    Wavelength-averaged
+    Wavelength-averaged figure
 
         figures/
             wavelength_averaged/
                 max/
                     psf.png
+
+    Engineering validation figure
+
+        figures/
+            engineering/
+                psf.png
     """
 
     return (
@@ -382,5 +395,5 @@ def get_report_figure_path(
         )
         / "figures"
         / Path(*path_parts)
-        / f"{figure_name}.png"
+        / f"{figure_name}.pdf"
     )

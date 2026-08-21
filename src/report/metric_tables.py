@@ -8,7 +8,8 @@ Purpose
 Generates one statistical table for each report metric from the
 canonical summary table.
 
-Baseline analyses produce wavelength-dependent metric tables.
+Baseline analyses produce configuration-, wavelength-, and
+field-dependent metric tables.
 
 Thermal and Monte Carlo analyses additionally produce grouped
 statistical summaries.
@@ -67,6 +68,7 @@ from src.report.statistics import (
     calculate_summary_statistics,
 )
 
+
 # ---------------------------------------------------------------------
 # Internal Helpers
 # ---------------------------------------------------------------------
@@ -77,15 +79,21 @@ def _generate_baseline_metric_table(
     metric_column: str,
 ) -> pd.DataFrame:
     """
-    Generate a wavelength-dependent baseline metric table.
+    Generate a configuration-dependent baseline metric table.
 
-    The baseline analysis contains a single nominal value for every
-    wavelength and field. No statistical aggregation is performed.
+    The baseline analysis contains one nominal value for every
+
+    - configuration
+    - wavelength
+    - field
+
+    No statistical aggregation is performed.
     """
 
     columns = [
         column
         for column in (
+            "Configuration",
             "Wavelength (µm)",
             "Field",
             metric_column,
@@ -93,13 +101,20 @@ def _generate_baseline_metric_table(
         if column in summary.columns
     ]
 
+    sort_columns = [
+        column
+        for column in (
+            "Configuration",
+            "Wavelength (µm)",
+            "Field",
+        )
+        if column in columns
+    ]
+
     return (
         summary[columns]
         .sort_values(
-            by=[
-                "Wavelength (µm)",
-                "Field",
-            ]
+            by=sort_columns,
         )
         .reset_index(
             drop=True,
@@ -171,6 +186,7 @@ def _generate_statistical_metric_table(
         group_column,
         selected_dataset,
     )
+
 
 # ---------------------------------------------------------------------
 # Public API

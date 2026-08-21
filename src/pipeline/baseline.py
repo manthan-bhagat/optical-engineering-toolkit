@@ -7,9 +7,8 @@ Purpose
 -------
 Executes the complete baseline optical analysis workflow.
 
-The baseline analysis reuses the nominal thermal Zemax exports at the
-reference temperature and evaluates optical performance as a function of
-wavelength.
+The baseline analysis evaluates optical performance as a function of
+wavelength for each Zemax configuration independently.
 
 Pipeline
 --------
@@ -22,6 +21,8 @@ PSF
 MTF
         ↓
 Wavefront
+        ↓
+Group by Configuration
         ↓
 CSV Export
         ↓
@@ -37,6 +38,7 @@ Project: Master's Thesis - Zemax Optical Analysis Toolkit
 # Standard Library Imports
 # ---------------------------------------------------------------------
 
+from collections import defaultdict
 from pathlib import Path
 
 # ---------------------------------------------------------------------
@@ -76,6 +78,41 @@ from src.plotting.baseline import (
 )
 
 # ---------------------------------------------------------------------
+# Internal Helpers
+# ---------------------------------------------------------------------
+
+
+def _group_by_configuration(
+    cases,
+) -> dict[int, list]:
+    """
+    Group baseline optical cases by Zemax configuration.
+
+    Each configuration is processed and exported independently.
+    """
+
+    grouped = defaultdict(list)
+
+    for optical_case in cases:
+
+        if optical_case.configuration is None:
+            raise ValueError(
+                f"Baseline case '{optical_case.case_id}' "
+                f"does not define a configuration."
+            )
+
+        grouped[
+            optical_case.configuration
+        ].append(
+            optical_case
+        )
+
+    return dict(
+        grouped
+    )
+
+
+# ---------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------
 
@@ -89,24 +126,27 @@ def run_baseline_pipeline(
     Parameters
     ----------
     input_directory
-        Baseline input directory containing the nominal thermal
-        Zemax exports.
+        Baseline input directory containing the Zemax exports for all
+        baseline configurations.
     """
 
     # -------------------------------------------------------------
-    # Discover optical cases
+    # Discover Optical Cases
     # -------------------------------------------------------------
 
     optical_cases = load_baseline_cases(
         Path(input_directory)
     )
-    print(f"Loaded {len(optical_cases)} baseline cases")
+
+    print(
+        f"Loaded {len(optical_cases)} baseline cases"
+    )
 
     if not optical_cases:
         return
 
     # -------------------------------------------------------------
-    # Process every optical case
+    # Process Every Optical Case
     # -------------------------------------------------------------
 
     for optical_case in optical_cases:
@@ -128,21 +168,54 @@ def run_baseline_pipeline(
         )
 
     # -------------------------------------------------------------
-    # Export
+    # Group by Configuration
     # -------------------------------------------------------------
 
-    export_baseline_csv(
-        optical_cases,
-    )
-
-    export_baseline_excel(
-        optical_cases,
+    cases_by_configuration = (
+        _group_by_configuration(
+            optical_cases,
+        )
     )
 
     # -------------------------------------------------------------
-    # Plotting
+    # Export and Plot Each Configuration
     # -------------------------------------------------------------
 
-    generate_baseline_plots(
-        optical_cases,
-    )
+    for configuration in sorted(
+        cases_by_configuration
+    ):
+
+        configuration_cases = (
+            cases_by_configuration[
+                configuration
+            ]
+        )
+
+        print(
+            f"Processing baseline configuration "
+            f"{configuration} "
+            f"({len(configuration_cases)} cases)"
+        )
+
+        # ---------------------------------------------------------
+        # Export
+        # ---------------------------------------------------------
+
+        export_baseline_csv(
+            configuration_cases,
+            configuration,
+        )
+
+        export_baseline_excel(
+            configuration_cases,
+            configuration,
+        )
+
+        # ---------------------------------------------------------
+        # Plotting
+        # ---------------------------------------------------------
+
+        generate_baseline_plots(
+            configuration_cases,
+            configuration,
+        )

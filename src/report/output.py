@@ -49,7 +49,6 @@ from src.report.report_figures import (
 # Public API
 # ---------------------------------------------------------------------
 
-
 def generate_reports(
     analysis_type: AnalysisType,
 ) -> None:

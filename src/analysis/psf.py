@@ -68,9 +68,135 @@ from skimage.measure import (
 # Local Imports
 # ---------------------------------------------------------------------
 
-from src.config import EE_TARGET
+from src.config import (
+    EE_TARGET,
+    FOCAL_RATIO,
+)
 from src.models.psf_analysis import PSFAnalysis
 from src.models.psf_data import PSFData
+
+# ---------------------------------------------------------------------
+# Airy Reference
+# ---------------------------------------------------------------------
+
+def _compute_airy_radius(
+    wavelength_um: float,
+) -> float:
+    """
+    Compute the diffraction-defined Airy reference radius.
+
+    The radius is defined as the radius to the first minimum of the
+    ideal unobstructed circular-aperture diffraction pattern:
+
+        r = 1.22 λ F#
+
+    Parameters
+    ----------
+    wavelength_um
+        Analysis wavelength.
+
+        Units
+        -----
+        Micrometers (µm)
+
+    Returns
+    -------
+    float
+        Airy reference radius in micrometers.
+    """
+
+    if wavelength_um <= 0.0:
+        raise ValueError(
+            "Wavelength must be positive."
+        )
+
+    return float(
+        1.22
+        * wavelength_um
+        * FOCAL_RATIO
+    )
+
+def _compute_energy_within_radius(
+    data: PSFData,
+    centroid_x: float,
+    centroid_y: float,
+    radius_um: float,
+) -> float:
+    """
+    Compute the fraction of total PSF energy enclosed within a fixed
+    physical radius.
+
+    The radius is measured from the intensity-weighted PSF centroid.
+
+    Parameters
+    ----------
+    data
+        Parsed PSF data.
+
+    centroid_x
+        Intensity-weighted centroid X coordinate in pixel units.
+
+    centroid_y
+        Intensity-weighted centroid Y coordinate in pixel units.
+
+    radius_um
+        Physical radius within which PSF energy is enclosed.
+
+        Units
+        -----
+        Micrometers (µm)
+
+    Returns
+    -------
+    float
+        Fraction of total sampled PSF energy enclosed within the
+        specified radius.
+    """
+
+    if radius_um < 0.0:
+        raise ValueError(
+            "Radius must not be negative."
+        )
+
+    image = np.asarray(
+        data.psf,
+        dtype=np.float64,
+    )
+
+    y_indices, x_indices = np.indices(
+        image.shape
+    )
+
+    radius_pixels = (
+        radius_um
+        / data.pixel_spacing_um
+    )
+
+    radius = np.sqrt(
+        (x_indices - centroid_x) ** 2
+        + (y_indices - centroid_y) ** 2
+    )
+
+    enclosed_energy = float(
+        image[
+            radius <= radius_pixels
+        ].sum()
+    )
+
+    total_energy = float(
+        image.sum()
+    )
+
+    if total_energy <= 0.0:
+        raise ValueError(
+            "PSF contains zero total intensity."
+        )
+
+    return float(
+        enclosed_energy
+        / total_energy
+    )
+
 
 # ---------------------------------------------------------------------
 # Public API
@@ -78,6 +204,7 @@ from src.models.psf_data import PSFData
 
 def analyze_psf(
     data: PSFData,
+    wavelength_um: float,
 ) -> PSFAnalysis:
     """
     Compute all derived optical metrics from a parsed Zemax PSF.
@@ -91,7 +218,18 @@ def analyze_psf(
     -------
     PSFAnalysis
         Derived optical performance metrics.
+
+            wavelength_um
+        Analysis wavelength associated with the PSF.
+
+        Units
+        -----
+        Micrometers (µm)
+
+        Used to calculate the diffraction-defined Airy reference
+        radius.
     """
+
 
     # -------------------------------------------------------------
     # Intensity-weighted centroid.
@@ -180,6 +318,28 @@ def analyze_psf(
     )
 
     # -------------------------------------------------------------
+    # Airy reference and PSF wings.
+    # -------------------------------------------------------------
+
+    airy_radius = _compute_airy_radius(
+        wavelength_um,
+    )
+
+    energy_within_airy_radius = (
+        _compute_energy_within_radius(
+            data,
+            centroid_x,
+            centroid_y,
+            radius_um=airy_radius,
+        )
+    )
+
+    psf_wing_fraction = (
+        1.0
+        - energy_within_airy_radius
+    )
+
+    # -------------------------------------------------------------
     # Miscellaneous metrics.
     # -------------------------------------------------------------
 
@@ -242,6 +402,18 @@ def analyze_psf(
         # ---------------------------------------------------------
 
         peak_intensity=peak_intensity,
+
+        # ---------------------------------------------------------
+        # Airy reference and PSF wings
+        # ---------------------------------------------------------
+
+        airy_radius_um=airy_radius,
+
+        energy_within_airy_radius=(
+            energy_within_airy_radius
+        ),
+
+        psf_wing_fraction=psf_wing_fraction,
     )
 
 

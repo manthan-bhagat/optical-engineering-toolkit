@@ -200,6 +200,35 @@ THERMAL_PLOT_METRICS: tuple[PlotMetric, ...] = (
     ),
 
     # -------------------------------------------------------------
+    # Airy Reference and PSF Wings
+    # -------------------------------------------------------------
+
+    PlotMetric(
+        attribute_path="psf_analysis.airy_radius_um",
+        ylabel="Airy Reference Radius (µm)",
+        title="Airy Reference Radius vs Temperature",
+        filename="airy_radius_vs_temperature.png",
+    ),
+
+    PlotMetric(
+        attribute_path=(
+            "psf_analysis.energy_within_airy_radius"
+        ),
+        ylabel="Energy Within Airy Radius",
+        title="Energy Within Airy Radius vs Temperature",
+        filename=(
+            "energy_within_airy_radius_vs_temperature.png"
+        ),
+    ),
+
+    PlotMetric(
+        attribute_path="psf_analysis.psf_wing_fraction",
+        ylabel="PSF Wing Fraction",
+        title="PSF Wing Fraction vs Temperature",
+        filename="psf_wing_fraction_vs_temperature.png",
+    ),
+
+    # -------------------------------------------------------------
     # MTF (17.2 lp/mm)
     # -------------------------------------------------------------
 
@@ -303,9 +332,16 @@ MONTE_CARLO_PLOT_METRICS: tuple[PlotMetric, ...] = tuple(
             "vs Temperature",
             "vs Representative Trial",
         ),
-        filename=metric.filename.replace(
-            "_vs_temperature",
-            "_vs_representative_trial",
+        filename=(
+            metric.filename
+            .replace(
+                "_vs_temperature",
+                "_vs_wavelength",
+            )
+            .replace(
+                ".png",
+                ".pdf",
+            )
         ),
     )
 
@@ -326,9 +362,16 @@ BASELINE_PLOT_METRICS: tuple[PlotMetric, ...] = tuple(
             "vs Temperature",
             "vs Wavelength",
         ),
-        filename=metric.filename.replace(
-            "_vs_temperature",
-            "_vs_wavelength",
+        filename=(
+            metric.filename
+            .replace(
+                "_vs_temperature",
+                "_vs_wavelength",
+            )
+            .replace(
+                ".png",
+                ".pdf",
+            )
         ),
     )
 

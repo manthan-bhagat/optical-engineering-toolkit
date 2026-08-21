@@ -5,7 +5,7 @@ CSV exporter for the baseline optical analysis.
 
 Purpose
 -------
-Exports the complete baseline optical dataset to a single CSV file.
+Exports one baseline optical configuration to a CSV file.
 
 Author: Manthan Bhagat
 Project: Master's Thesis - Zemax Optical Analysis Toolkit
@@ -49,9 +49,18 @@ from src.plotting.paths import (
 
 def export_baseline_csv(
     cases: Iterable[OpticalCase],
+    configuration: int,
 ) -> None:
     """
-    Export baseline optical analysis results to a CSV file.
+    Export one baseline optical configuration to a CSV file.
+
+    Parameters
+    ----------
+    cases
+        Baseline optical cases belonging to one configuration.
+
+    configuration
+        Zemax configuration identifier.
     """
 
     cases = validate_export_cases(
@@ -68,7 +77,9 @@ def export_baseline_csv(
         columns=RESULT_COLUMNS,
     )
 
-    output_file = get_baseline_csv_path()
+    output_file = get_baseline_csv_path(
+        configuration
+    )
 
     output_file.parent.mkdir(
         parents=True,

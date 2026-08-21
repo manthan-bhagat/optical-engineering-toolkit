@@ -245,11 +245,9 @@ def main() -> None:
 
             try:
 
-                generate_reports(
-                    REPORT_PIPELINES[
-                        report_analysis
-                    ],
-                )
+                analysis_type = REPORT_PIPELINES[
+                    report_analysis
+                ]
 
             except KeyError as exc:
 
@@ -262,6 +260,10 @@ def main() -> None:
                     f"'{report_analysis}'. "
                     f"Expected one of: all, {valid}."
                 ) from exc
+
+            generate_reports(
+                analysis_type,
+            )
 
         print(
             "Report generation completed successfully.\n"

@@ -5,7 +5,7 @@ Excel exporter for the baseline optical analysis.
 
 Purpose
 -------
-Exports the complete baseline optical dataset to a single Excel workbook.
+Exports one baseline optical configuration to an Excel workbook.
 
 Author: Manthan Bhagat
 Project: Master's Thesis - Zemax Optical Analysis Toolkit
@@ -49,10 +49,22 @@ from src.plotting.paths import (
 
 def export_baseline_excel(
     cases: Iterable[OpticalCase],
+    configuration: int,
     sheet_name: str = "Results",
 ) -> None:
     """
-    Export baseline optical analysis results to an Excel workbook.
+    Export one baseline optical configuration to an Excel workbook.
+
+    Parameters
+    ----------
+    cases
+        Baseline optical cases belonging to one configuration.
+
+    configuration
+        Zemax configuration identifier.
+
+    sheet_name
+        Name of the worksheet containing the results.
     """
 
     cases = validate_export_cases(
@@ -69,7 +81,9 @@ def export_baseline_excel(
         columns=RESULT_COLUMNS,
     )
 
-    output_file = get_baseline_excel_path()
+    output_file = get_baseline_excel_path(
+        configuration
+    )
 
     output_file.parent.mkdir(
         parents=True,
